@@ -2,8 +2,8 @@ import Image from "next/image";
 
 const Register = () => {
   return (
-    <div className="grid grid-cols-4 min-h-screen min-w-full relative">
-      <div className="hidden col-span-1 bg-Primary md:flex flex-col space-y-4">
+    <div className="grid grid-cols-4 min-h-screen min-w-full relative h-screen w-screen">
+      <div className="hidden md:col-span-1 bg-Primary md:flex flex-col space-y-4">
 
         <div className="flex justify-center md:max-w-md">
           <Image
@@ -27,7 +27,7 @@ const Register = () => {
         </div>
       </div>
 
-      <div className="flex-grow sm:col-span-3 bg-Tertiary flex flex-col items-center">
+      <div className="md:col-span-3 bg-Tertiary flex flex-col items-center">
         <div className="flex mt-24 lg:mt-36 space-x-2">
           <h1 className="text-Primary font-SofiaProSemiBold text-xl ">
             Register on ESSS
@@ -81,7 +81,7 @@ const Register = () => {
           <span className="font-SofiaProBold"> Sign in !</span>
         </h1>
 
-        <div className="border-b-2 border-light border-gray-300 p-2 mx-8 w-1/2 mt-6 lg:mt-24"></div>
+        <div className="border-b-2 border-light border-gray-300 p-2 mx-8 w-1/2 lg:mt-24"></div>
 
         <div className="flex flex-col md:w-3/4 items-center ">
           <ul className="font-SofiaProLightItalic text-lg">
