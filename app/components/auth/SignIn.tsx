@@ -1,6 +1,34 @@
+'use client';
+
+import { useLoginUserMutation } from "@/store/api/auth";
+import { loginRequest } from "@/types/auth/type";
 import Image from "next/image";
+import { useState } from "react";
 
 const SignIN = () => {
+
+  const [loginUser, {data, error, isLoading} ] = useLoginUserMutation();
+  const  [formData, setFormData] = useState<loginRequest> ({
+    email: "",
+    password: "",
+  })
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  }
+  const handleSubmit = async () => {
+    try {
+      const login = await loginUser(formData).unwrap();
+      console.log("Login successful", login);
+    } catch (error) {
+      console.log("Login failed", error);
+    }
+  }
+
   return (
     <div className="grid grid-cols-4 min-h-screen min-w-full relative">
       <div className="hidden col-span-1 bg-Primary md:flex flex-col space-y-4">
@@ -9,9 +37,9 @@ const SignIN = () => {
           <Image
             src={"/assets/images/auth/login.png"}
             alt="learning"
-            width={764}
-            height={597}
-            className="absolute mt-16"
+            width={664}
+            height={497}
+            className="absolute mt-8"
           />
         </div>
         
@@ -20,7 +48,7 @@ const SignIN = () => {
           <Image
             src={"/assets/images/auth/learning.png"}
             alt="logo"
-            width={344}
+            width={300}
             height={83}
             className=""
           />
@@ -29,8 +57,8 @@ const SignIN = () => {
 
 
       <div className="flex-grow sm:col-span-3 bg-Tertiary flex flex-col items-center">
-        <div className="flex mt-24 lg:mt-36 space-x-2">
-          <h1 className="text-Primary font-SofiaProSemiBold text-xl ">
+        <div className="flex mt-24 lg:mt-24 space-x-2">
+          <h1 className="text-Primary font-SofiaProSemiBold text-xl mt-2">
             Register on ESSS
           </h1>
           <Image
@@ -47,21 +75,23 @@ const SignIN = () => {
           </h1>
         </button>
 
-        <div className="flex justify-center p-2 w-1/4 sm:w-1/3 px-4">
+        <div className="flex items-center justify-center p-2 w-1/2 sm:w-1/3 px-4 mt-2">
           <div className="flex-grow border-b border-Primary"></div>
-          <span className="text-Primary font-SofiaProRegular text-md lg:mt-2">
+          <span className="text-Primary font-SofiaProRegular text-md mx-4 whitespace-nowrap">
             or Sign in with email
           </span>
           <div className="flex-grow border-b border-Primary"></div>
         </div>
 
-        <div className="flex flex-col w-1/3 mt-6 lg:mt-12 space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col w-1/3 mt-6 lg:mt-12 space-y-4">
           <label className="text-Primary font-SofiaProSemiBold text-sm">
             Email
           </label>
           <input
             type="text"
+            name="email"
             className="border-2 border-gray-300 border-light rounded-md p-2"
+            onChange={handleChange}
           />
 
           <label className="text-Primary font-SofiaProSemiBold text-sm">
@@ -69,13 +99,23 @@ const SignIN = () => {
           </label>
           <input
             type="text"
+            name="password"
             className="border-2 border-gray-300 rounded-md p-2"
+            onAbort={handleChange}
           />
-        </div>
 
-        <button className="flex justify-center bg-Primary rounded-full mt-8 lg:mt-16 w-1/3">
-          <h1 className="text-Secondary font-SofiaProSemiBold p-4">Sign In</h1>
-        </button>
+          <button
+            type="submit"
+            className="flex justify-center bg-Primary rounded-full w-1/2 md:w-full mt-12"
+            disabled={isLoading}
+          >
+            <h1 className="text-Secondary font-SofiaProSemiBold p-4">
+              {isLoading ? "Signing In..." : "Sign in"}
+            </h1>
+          </button>
+        </form>
+
+      
 
         <h1 className="text-Primary p-4 font-SofiaProSemiBold text-md">
           Don't have an account?
