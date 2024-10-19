@@ -26,13 +26,13 @@ export default function RootLayout({
       <html lang="en">
         <body className={poppins.className}>
           <header>
-            <Navbar />
+            {/* <Navbar /> */}
           </header>
 
           {/* main page content */}
           {children}
           {/* footer component */}
-          <Footer/>
+          {/* <Footer/> */}
         </body>
       </html>
     </StoreProvider>
