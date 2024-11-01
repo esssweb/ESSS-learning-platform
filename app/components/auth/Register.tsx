@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useState } from "react";
 import { useRegisterUserMutation } from "@/store/api/auth";
 import { registerRequest } from "@/types/auth/type";
-import { Input } from "@/components/ui/input";
 
 const Register = () => {
   const [formData, setFormData] = useState<registerRequest>({
