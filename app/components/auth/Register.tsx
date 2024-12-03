@@ -32,19 +32,19 @@ const Register = () => {
   };
 
   return (
-    <div className="grid grid-cols md:grid-cols-4 min-h-screen min-w-full relative h-screen w-screen">
-      <div className="hidden md:col-span-1 bg-Primary md:flex flex-col space-y-4">
-        <div className="flex justify-center md:max-w-md">
+    <div className="grid grid-cols-1 md:grid-cols-4 relative h-screen w-screen">
+      <div className="hidden md:flex md:col-span-1 bg-Primary flex-col space-y-4 h-full">
+        <div className="flex justify-center md:max-w-md flex-grow">
           <Image
             src={"/assets/images/auth/register.png"}
             alt="learning"
             width={764}
             height={697}
-            className="absolute mt-6"
+            className="absolute mt-6 hidden lg:block"
           />
         </div>
 
-        <div className="flex flex-grow justify-center items-end p-2">
+        <div className="flex justify-center p-2">
           <Image
             src={"/assets/images/auth/learning.png"}
             alt="logo"
@@ -69,23 +69,24 @@ const Register = () => {
         </div>
 
         <button className="flex justify-center bg-Primary rounded-full mt-4 w-1/2 md:w-1/3">
-          <h1 className="text-Secondary font-SofiaProSemiBold p-4 text-xs sm:text-base">
+          <h1 className="text-Secondary font-SofiaProSemiBold p-2 md:p-4 text-xs sm:text-base">
             Sign up With Google
           </h1>
         </button>
 
-        <div className="flex items-center justify-center p-2 w-1/2 sm:w-1/3 px-4 mt-2">
-          <div className="flex-grow border-b border-Primary"></div>
+        <div className="flex items-center justify-center p-2 w-1/2 sm:w-1/3 md:px-4 mt-2">
+          <hr className="flex-grow border-b border-Primary"></hr>
           <span className="text-Primary font-SofiaProRegular text-md mx-4 whitespace-nowrap">
             or Register with email
           </span>
-          <div className="flex-grow border-b border-Primary"></div>
+          <hr className="flex-grow border-b border-Primary"></hr>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col w-full md:w-1/3 mt-6 px-6 md:px-0"
+          className="flex flex-col w-full px-4 md:w-1/2 lg:w-1/3 mt-6 md:px-2 lg:px-0"
         >
+    
           <label className="text-Primary font-SofiaProSemiBold text-sm">
             Email
           </label>
@@ -110,13 +111,14 @@ const Register = () => {
 
           <button
             type="submit"
-            className="flex justify-center bg-Secondary rounded-full w-1/2 md:w-full mt-12"
+            className="flex justify-center bg-Secondary mx-auto rounded-full w-1/2 md:w-full mt-12"
             disabled={isLoading}
           >
             <h1 className="text-Primary font-SofiaProSemiBold p-4">
               {isLoading ? "Signing In..." : "Sign up"}
             </h1>
           </button>
+  
         </form>
 
         <h1 className="text-Primary p-4 font-SofiaProSemiBold text-md">
