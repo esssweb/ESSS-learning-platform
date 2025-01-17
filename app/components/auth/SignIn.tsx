@@ -4,8 +4,9 @@ import { useLoginUserMutation } from "@/store/api/auth";
 import { loginRequest } from "@/types/auth/type";
 import Image from "next/image";
 import { useState } from "react";
+import LoadingSpinner from "../LoadingSpinner";
 
-const SignIN = () => {
+const SignIn = () => {
 
   const [loginUser, {data, error, isLoading} ] = useLoginUserMutation();
   const  [formData, setFormData] = useState<loginRequest> ({
@@ -30,20 +31,18 @@ const SignIN = () => {
   }
 
   return (
-    <div className="grid grid-cols-4 min-h-screen min-w-full relative">
-      <div className="hidden col-span-1 bg-Primary md:flex flex-col space-y-4">
-    
-        <div className="flex justify-center md:max-w-md">
+    <div className="grid grid-cols-1 md:grid-cols-4 min-h-screen min-w-full relative">
+      <div className="hidden md:col-span-1 bg-Primary md:flex flex-col space-y-4">
+        <div className="flex justify-center md:max-w-md flex-grow">
           <Image
             src={"/assets/images/auth/login.png"}
             alt="learning"
             width={664}
             height={497}
-            className="absolute mt-8"
+            className="absolute mt-8 hidden lg:block"
           />
         </div>
         
-     
         <div className="flex flex-grow justify-center items-end">
           <Image
             src={"/assets/images/auth/learning.png"}
@@ -56,26 +55,26 @@ const SignIN = () => {
       </div>
 
 
-      <div className="flex-grow sm:col-span-3 bg-Tertiary flex flex-col items-center">
+      <div className="md:col-span-3 bg-Tertiary flex flex-col items-center">
         <div className="flex mt-24 lg:mt-24 space-x-2">
           <h1 className="text-Primary font-SofiaProSemiBold text-xl mt-2">
             Register on ESSS
           </h1>
           <Image
             src={"/assets/images/auth/learning-2.png"}
-            alt=""
+            alt="Learning"
             width={181}
             height={44}
           />
         </div>
 
-        <button className="flex justify-center bg-Secondary rounded-full mt-4 w-1/3">
-          <h1 className="text-Primary font-SofiaProSemiBold p-4 text-xs sm:text-base">
+        <button className="flex justify-center bg-Secondary rounded-full mt-4 w-1/2 md:w-1/3">
+          <h1 className="text-Primary font-SofiaProSemiBold p-2 md:p-4 text-xs sm:text-base">
             Sign in With Google
           </h1>
         </button>
 
-        <div className="flex items-center justify-center p-2 w-1/2 sm:w-1/3 px-4 mt-2">
+        <div className="flex items-center justify-center p-2 w-1/2 sm:w-1/3 md:px-4 mt-2">
           <div className="flex-grow border-b border-Primary"></div>
           <span className="text-Primary font-SofiaProRegular text-md mx-4 whitespace-nowrap">
             or Sign in with email
@@ -83,7 +82,7 @@ const SignIN = () => {
           <div className="flex-grow border-b border-Primary"></div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col w-1/3 mt-6 lg:mt-12 space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col w-full md:w-1/2 lg:w-1/3 mt-6 lg:mt-12 space-y-4 px-4 md:px-2">
           <label className="text-Primary font-SofiaProSemiBold text-sm">
             Email
           </label>
@@ -106,11 +105,11 @@ const SignIN = () => {
 
           <button
             type="submit"
-            className="flex justify-center bg-Primary rounded-full w-1/2 md:w-full mt-12"
+            className="flex justify-center bg-Primary mx-auto rounded-full w-1/2 md:w-full mt-12"
             disabled={isLoading}
           >
-            <h1 className="text-Secondary font-SofiaProSemiBold p-4">
-              {isLoading ? "Signing In..." : "Sign in"}
+            <h1 className="text-Secondary font-SofiaProSemiBold p-2 md:p-4">
+              {isLoading ? (<LoadingSpinner/>) : ("Sign In")}
             </h1>
           </button>
         </form>
@@ -138,4 +137,4 @@ const SignIN = () => {
   );
 };
 
-export default SignIN;
+export default SignIn;

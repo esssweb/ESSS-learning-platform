@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { useRegisterUserMutation } from "@/store/api/auth";
 import { registerRequest } from "@/types/auth/type";
+import LoadingSpinner from "../LoadingSpinner";
 
 const Register = () => {
   const [formData, setFormData] = useState<registerRequest>({
@@ -33,7 +34,7 @@ const Register = () => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 relative h-screen w-screen">
-      <div className="hidden md:flex md:col-span-1 bg-Primary flex-col space-y-4 h-full">
+      <div className="hidden md:flex md:col-span-1 bg-Primary md:flex-col space-y-4 h-full">
         <div className="flex justify-center md:max-w-md flex-grow">
           <Image
             src={"/assets/images/auth/register.png"}
@@ -62,7 +63,7 @@ const Register = () => {
           </h1>
           <Image
             src={"/assets/images/auth/learning-2.png"}
-            alt=""
+            alt="Learning"
             width={181}
             height={44}
           />
@@ -114,8 +115,8 @@ const Register = () => {
             className="flex justify-center bg-Secondary mx-auto rounded-full w-1/2 md:w-full mt-12"
             disabled={isLoading}
           >
-            <h1 className="text-Primary font-SofiaProSemiBold p-4">
-              {isLoading ? "Signing In..." : "Sign up"}
+            <h1 className="text-Primary font-SofiaProSemiBold p-2 md:p-4">
+              {isLoading ? (<LoadingSpinner/>) : ("Sign up")}
             </h1>
           </button>
   
