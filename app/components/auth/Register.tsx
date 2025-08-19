@@ -3,8 +3,9 @@
 import Image from "next/image";
 import { useState } from "react";
 import { useRegisterUserMutation } from "@/store/api/auth";
-import { registerRequest } from "@/types/auth/type";
+import { registerRequest, authSchema } from "@/types/auth/type";
 import LoadingSpinner from "../LoadingSpinner";
+import { ZodError } from "zod";
 
 const Register = () => {
   const [formData, setFormData] = useState<registerRequest>({
@@ -29,6 +30,20 @@ const Register = () => {
       console.log("Registeration sucessful", register);
     } catch (error) {
       console.log("Registeration failed", error);
+    }
+  };
+
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
+  const validateField = (name: "email" | "password", value: string) => {
+    try {
+      authSchema.shape[name].parse(value);
+
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    } catch (err) {
+      if (err instanceof ZodError) {
+        setErrors((prev) => ({ ...prev, [name]: err.errors[0].message }));
+      }
     }
   };
 
@@ -85,7 +100,7 @@ const Register = () => {
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col w-full px-4 md:w-1/2 lg:w-1/3 mt-6 md:px-2 lg:px-0"
+          className="flex flex-col w-full px-4 md:w-1/2 lg:w-1/3 mt-2 md:px-2 lg:px-0"
         >
     
           <label className="text-Primary font-SofiaProSemiBold text-sm">
@@ -96,8 +111,10 @@ const Register = () => {
             name="email"
             value={formData.email}
             onChange={handleChange}
+            onBlur={(e) => validateField("email", e.target.value)}
             className="border-2 border-gray-300 rounded-md p-2 my-2"
           />
+          {errors.email && <p className="text-red-500 text-xs">{errors.email}</p>}
 
           <label className="text-Primary font-SofiaProSemiBold text-sm">
             Password
@@ -107,8 +124,10 @@ const Register = () => {
             name="password"
             value={formData.password}
             onChange={handleChange}
+            onBlur={(e) => validateField("password", e.target.value)}
             className="border-2 border-gray-300 rounded-md my-2 p-2"
           />
+          {errors.password && <p className="text-red-500 text-xs">{errors.password}</p>}
 
           <button
             type="submit"

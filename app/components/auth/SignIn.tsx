@@ -1,10 +1,11 @@
 'use client';
 
 import { useLoginUserMutation } from "@/store/api/auth";
-import { loginRequest } from "@/types/auth/type";
+import { loginRequest, authSchema } from "@/types/auth/type";
 import Image from "next/image";
 import { useState } from "react";
 import LoadingSpinner from "../LoadingSpinner";
+import { ZodError } from "zod";
 
 const SignIn = () => {
 
@@ -29,6 +30,20 @@ const SignIn = () => {
       console.log("Login failed", error);
     }
   }
+
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
+  const validateField = (name: "email" | "password", value: string) => {
+    try {
+      authSchema.shape[name].parse(value);
+
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    } catch (err) {
+      if (err instanceof ZodError) {
+        setErrors((prev) => ({ ...prev, [name]: err.errors[0].message }));
+      }
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 min-h-screen min-w-full relative">
@@ -74,7 +89,7 @@ const SignIn = () => {
           </span>
         </button>
 
-        <div className="flex items-center justify-center p-2 w-1/2 sm:w-1/3 md:px-4 mt-2">
+        <div className="flex items-center justify-center w-1/2 sm:w-1/3 md:px-4">
           <div className="flex-grow border-b border-Primary"></div>
           <span className="text-Primary font-SofiaProRegular text-md mx-4 whitespace-nowrap">
             or Sign in with email
@@ -82,7 +97,7 @@ const SignIn = () => {
           <div className="flex-grow border-b border-Primary"></div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col w-full md:w-1/2 lg:w-1/3 mt-6 lg:mt-12 space-y-4 px-4 md:px-2">
+        <form onSubmit={handleSubmit} className="flex flex-col w-full md:w-1/2 lg:w-1/3 mt-2 lg:mt-4 space-y-4 px-4 md:px-2">
           <label className="text-Primary font-SofiaProSemiBold text-sm">
             Email
           </label>
@@ -91,7 +106,9 @@ const SignIn = () => {
             name="email"
             className="border-2 border-gray-300 border-light rounded-md p-2"
             onChange={handleChange}
+            onBlur={(e) => validateField("email", e.target.value)}
           />
+          {errors.email && <p className="text-red-500 text-xs">{errors.email}</p>}
 
           <label className="text-Primary font-SofiaProSemiBold text-sm">
             Password
@@ -101,7 +118,9 @@ const SignIn = () => {
             name="password"
             className="border-2 border-gray-300 rounded-md p-2"
             onAbort={handleChange}
+            onBlur={(e) => validateField("password", e.target.value)}
           />
+          {errors.password && <p className="text-red-500 text-xs">{errors.password}</p>}
 
           <button
             type="submit"
