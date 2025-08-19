@@ -70,9 +70,9 @@ const Register = () => {
         </div>
 
         <button className="flex justify-center bg-Primary rounded-full mt-4 w-1/2 md:w-1/3">
-          <h1 className="text-Secondary font-SofiaProSemiBold p-2 md:p-4 text-xs sm:text-base">
+          <span className="text-Secondary font-SofiaProSemiBold p-2 md:p-4 text-xs sm:text-base">
             Sign up With Google
-          </h1>
+          </span>
         </button>
 
         <div className="flex items-center justify-center p-2 w-1/2 sm:w-1/3 md:px-4 mt-2">
@@ -115,17 +115,17 @@ const Register = () => {
             className="flex justify-center bg-Secondary mx-auto rounded-full w-1/2 md:w-full mt-12"
             disabled={isLoading}
           >
-            <h1 className="text-Primary font-SofiaProSemiBold p-2 md:p-4">
+            <span className="text-Primary font-SofiaProSemiBold p-2 md:p-4">
               {isLoading ? (<LoadingSpinner/>) : ("Sign up")}
-            </h1>
+            </span>
           </button>
   
         </form>
 
-        <h1 className="text-Primary p-4 font-SofiaProSemiBold text-md">
+        <p className="text-Primary p-4 font-SofiaProSemiBold text-md">
           Already have an account?
           <span className="font-SofiaProBold"> Sign in !</span>
-        </h1>
+        </p>
 
         <div className="border-b-2 border-light border-gray-300 p-2 mx-8 w-1/2 mt-16 lg:mt-16"></div>
 
