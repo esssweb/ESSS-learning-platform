@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import Card from "@/app/components/explore/dynamic-explore/Card";
 import Pagination from "@/app/components/explore/dynamic-explore/Pagination";
 
@@ -72,10 +72,9 @@ const DynamicExplorePage = ({ params }: { params: { level: string } }) => {
           />
         ))}
       </div>
-      <div className='flex items-center mt-24 mb-60 justify-center'>
-        <Pagination totalPages={3}/>
+      <div className="flex items-center mt-24 mb-60 justify-center">
+        <Pagination totalPages={3} />
       </div>
-      
     </>
   );
 };
