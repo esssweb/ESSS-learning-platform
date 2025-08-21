@@ -15,7 +15,7 @@ const CoursePage = async ({
 }) => {
   const course: courseData = await getCourseById(params.courseId);
   const subCourses: subCoursesData[] = await getSubCoursesByCourseId(
-    params.courseId,
+    params.courseId
   );
 
   return (
