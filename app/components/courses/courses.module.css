@@ -1,0 +1,35 @@
+.radio_input {
+  opacity: 0;
+}
+.radio_input {
+  opacity: 0;
+  width: 250px;
+  height: 250px;
+  border: none;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.radio_div {
+  pointer-events: none;
+}
+.radio_div::after {
+  content: "";
+  z-index: 20;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  position: absolute;
+  top: 0;
+  background-color: #f8f7f4;
+}
+.current_course_radio > input:checked + .radio_div::after {
+  background-color: #e0f869;
+}
+@media (min-width: 450px) {
+  .current_course-wrapper {
+    width: 450px;
+  }
+  .progress_bar {
+    width: 110px;
+  }
+}
