@@ -6,19 +6,16 @@ const Hero = ({ level }: { level: string }) => {
   return (
     <section className="relative">
       {" "}
-      {/* no mt-* here = no white gap */}
       <div className='bg-[url("/assets/images/explore/level/hero_background.png")] relative overflow-hidden bg-cover bg-center'>
-        {/* Hero image */}
         <Image
           src={imageUrl}
           alt={`Image for ${level}`}
           width={1932}
           height={489}
-          className="w-full h-auto block" /* block prevents inline-image whitespace */
+          className="w-full h-auto block"
           priority
         />
 
-        {/* Overlay: reserve space at the top equal to navbar height so text never goes under it */}
         <div className="absolute inset-0 z-10">
           <div
             className="

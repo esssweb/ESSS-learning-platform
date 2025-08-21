@@ -102,3 +102,8 @@ export type moduleData = {
   part: number;
   __v: number;
 };
+export type CoursesDataProps = {
+  coursesData: courseData[];
+};
+
+export type CourseType = courseData;

@@ -23,7 +23,7 @@ const course = async () => {
     <div className="overflow-hidden">
       <CoursesBar />
       <CurrentCourse />
-      <div className="courses-list pt-3 pb-8 px-[10px] md:px-[20px] lg:px-[30px] xl:px-[44px] xl:px-[80px] bg-Tertiary mb-20">
+      <div className="courses-list pt-3 pb-8 px-[10px] md:px-[20px] lg:px-[30px] xl:px-[44px] bg-Tertiary mb-20">
         <p className="text-xl font-SofiaProMedium font-bold mb-2 mt-3 ">
           Most Popular Courses
         </p>
