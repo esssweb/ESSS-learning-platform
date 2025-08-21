@@ -1,8 +1,8 @@
-import SignIN from "../components/auth/SignIn";
+import SignIn from "../../components/auth/SignIn";
 
 const Login = () => {
     return ( 
-        <SignIN/>
+        <SignIn/>
      );
 }
  

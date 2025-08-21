@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useState } from "react";
 import LoadingSpinner from "../LoadingSpinner";
 import { ZodError } from "zod";
+import Link from "next/link";
 
 const SignIn = () => {
 
@@ -58,7 +59,7 @@ const SignIn = () => {
           />
         </div>
         
-        <div className="flex flex-grow justify-center items-end">
+        <div className="flex flex-grow justify-center items-end p-2">
           <Image
             src={"/assets/images/auth/learning.png"}
             alt="logo"
@@ -71,7 +72,7 @@ const SignIn = () => {
 
 
       <div className="md:col-span-3 bg-Tertiary flex flex-col items-center">
-        <div className="flex mt-24 lg:mt-24 space-x-2">
+        <div className="flex mt-16 lg:mt-28 space-x-2">
           <h1 className="text-Primary font-SofiaProSemiBold text-xl mt-2">
             Register on ESSS
           </h1>
@@ -89,7 +90,7 @@ const SignIn = () => {
           </span>
         </button>
 
-        <div className="flex items-center justify-center w-1/2 sm:w-1/3 md:px-4">
+        <div className="flex items-center justify-center p-2 w-1/2 sm:w-1/3 md:px-4 mt-2">
           <div className="flex-grow border-b border-Primary"></div>
           <span className="text-Primary font-SofiaProRegular text-md mx-4 whitespace-nowrap">
             or Sign in with email
@@ -97,14 +98,14 @@ const SignIn = () => {
           <div className="flex-grow border-b border-Primary"></div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col w-full md:w-1/2 lg:w-1/3 mt-2 lg:mt-4 space-y-4 px-4 md:px-2">
+        <form onSubmit={handleSubmit} className="flex flex-col w-full px-4 md:w-1/2 lg:w-1/3 mt-2 md:px-2 lg:px-0">
           <label className="text-Primary font-SofiaProSemiBold text-sm">
             Email
           </label>
           <input
             type="text"
             name="email"
-            className="border-2 border-gray-300 border-light rounded-md p-2"
+            className="border-2 border-gray-300 rounded-md p-2 my-2"
             onChange={handleChange}
             onBlur={(e) => validateField("email", e.target.value)}
           />
@@ -116,7 +117,7 @@ const SignIn = () => {
           <input
             type="text"
             name="password"
-            className="border-2 border-gray-300 rounded-md p-2"
+            className="border-2 border-gray-300 rounded-md p-2 my-2"
             onAbort={handleChange}
             onBlur={(e) => validateField("password", e.target.value)}
           />
@@ -137,12 +138,12 @@ const SignIn = () => {
 
         <p className="text-Primary p-4 font-SofiaProSemiBold text-md">
           Don't have an account?
-          <span className="font-SofiaProBold"> Register Now !</span>
+          <Link href='/register' className="font-SofiaProBold"> Register Now !</Link>
         </p>
 
-        <div className="border-b-2 border-light border-gray-300 p-2 mx-8 w-1/2 mt-6 lg:mt-24"></div>
+        <div className="border-b-2 border-light border-gray-300 p-2 mx-8 w-1/2 mt-6 lg:mt-16"></div>
 
-        <div className="flex flex-col md:w-3/4 items-center ">
+        <div className="flex flex-col md:w-3/4 items-center mt-2">
           <ul className="font-SofiaProLightItalic text-lg">
             <li className="text-center">Powered By:</li>
             <li className="font-SofiaProUltraLight md:mr-6">

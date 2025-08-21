@@ -4,7 +4,7 @@ import React from "react";
 
 const RegisterSection = () => {
   return (
-    <section className="relative items-center flex justify-end h-[40vh] md:h-[60vh] min-h-[400px]  lg:min-h-[600px]">
+    <section className="relative items-center flex justify-end h-[40vh] md:h-[60vh] min-h-[400px] lg:min-h-[600px] mb-4 lg:mb-12">
       <div className="absolute z-[-1] w-2/3 h-[140%] left-0 top-[-100px]  lg:top-[-35] flex justify-center items-center">
         <Image
           src="/assets/images/home_page/group_180@2x.png"

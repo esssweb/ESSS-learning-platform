@@ -6,6 +6,7 @@ import { useRegisterUserMutation } from "@/store/api/auth";
 import { registerRequest, authSchema } from "@/types/auth/type";
 import LoadingSpinner from "../LoadingSpinner";
 import { ZodError } from "zod";
+import Link from "next/link";
 
 const Register = () => {
   const [formData, setFormData] = useState<registerRequest>({
@@ -143,7 +144,7 @@ const Register = () => {
 
         <p className="text-Primary p-4 font-SofiaProSemiBold text-md">
           Already have an account?
-          <span className="font-SofiaProBold"> Sign in !</span>
+          <Link href='/login' className="font-SofiaProBold"> Sign in !</Link>
         </p>
 
         <div className="border-b-2 border-light border-gray-300 p-2 mx-8 w-1/2 mt-16 lg:mt-16"></div>
