@@ -12,25 +12,44 @@ const CurrentCourse = () => {
 
   return (
     <div className="flex flex-col w-full pb-5">
-      <p className="ml-[20px] md:ml-[40px] lg:ml-[80px] xl:ml-[123px] mt-[30px] mb-[10px] text-Primary text-xl font-semibold font-SofiaProBold">
+      <p
+        className="
+          ml-[20px] md:ml-[40px] lg:ml-[80px] xl:ml-[123px] 
+          mt-[30px] mb-[10px] text-Primary 
+          text-xl sm:text-2xl md:text-3xl lg:text-4xl 
+          font-SofiaProMedium
+        "
+      >
         Resume what you Started...
       </p>
+
       <div
         className="
           w-[360px] sm:w-[600px] md:w-[700px] lg:w-[900px] xl:w-[1100px] 2xl:w-[1300px]
           mx-auto
         "
       >
-        <div className="flex justify-end mb-2 pr-1">
+        <div className="flex justify-end mb-4 pr-1">
           <Link
             href="/courses/progress_bar"
             className="
-              font-SofiaProMedium text-Primary underline underline-offset-2
-              text-[12px] min-[360px]:text-[13px] min-[414px]:text-[14px] sm:text-[15px] md:text-[20px]
-              hover:opacity-80
+              group inline-flex items-center gap-2 
+              px-4 py-2 rounded-xl 
+              bg-Primary text-Secondary font-SofiaProMedium
+              text-sm sm:text-base md:text-lg 
+              transition-all duration-300 
+              hover:bg-Secondary hover:text-Primary hover:shadow-md
             "
           >
             See more
+            <span
+              className="
+                inline-block transform transition-transform duration-300 
+                group-hover:translate-x-2
+              "
+            >
+              →
+            </span>
           </Link>
         </div>
 
@@ -41,8 +60,6 @@ const CurrentCourse = () => {
           resumeText="Resume"
         />
       </div>
-
-      {/* keep your radio dots */}
       <div className="current-course-radio-btns flex self-center mt-6">
         <div
           className={`${styles.current_course_radio} mx-[6px] rounded-full bg-transparent w-5 h-5 relative shadow-[0px_3px_6px_#00000029]`}

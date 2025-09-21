@@ -3,19 +3,20 @@ import { CoursesDataProps } from "@/types/dynamic-courses/types";
 
 const CourseList = ({ coursesData }: CoursesDataProps) => {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-1 place-items-center">
+    <div
+      className="
+        grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6
+      "
+    >
       {coursesData.map((c) => (
-        <Course
-          key={c._id}
-          id={c._id}
-          title={c.title}
-          description={c.description}
-          // category={c.category}
-          // level={c.level}
-          // price={c.price}
-          // rating={c.rating}
-          // thumbnail={c.thumbnail}
-        />
+        <div key={c._id} className="flex justify-center sm:justify-start">
+          <Course
+            id={c._id as string}
+            title={c.title}
+            description={c.description}
+            image="/assets/images/img.jpg"
+          />
+        </div>
       ))}
     </div>
   );

@@ -37,7 +37,6 @@ const CourseCard: React.FC<Props> = ({
       "
     >
       <div className="flex items-center content-center flex-col px-3 sm:px-6 md:px-8 lg:flex-row">
-        {/* Course Image */}
         <div
           className="
             relative w-full overflow-hidden rounded-3xl
@@ -46,13 +45,11 @@ const CourseCard: React.FC<Props> = ({
             min-[414px]:aspect-[16/10]
             sm:w-full sm:aspect-[16/10]
             md:w-full md:h-[340px] md:aspect-auto
-            lg:w-[240px] lg:h-[240px]
+            lg:w-[300px] lg:h-[240px]
           "
         >
           <Image src={imageSrc} alt={title} fill className="object-cover" />
         </div>
-
-        {/* Course Content */}
         <div
           className="
             flex flex-col w-full mt-5 lg:mt-0 lg:ml-12 flex-grow
