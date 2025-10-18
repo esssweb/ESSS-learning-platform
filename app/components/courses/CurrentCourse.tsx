@@ -31,7 +31,7 @@ const CurrentCourse = () => {
       >
         <div className="flex justify-end mb-4 pr-1">
           <Link
-            href="/courses/progress_bar"
+            href="/courses/progress"
             className="
               group inline-flex items-center gap-2 
               px-4 py-2 rounded-xl 

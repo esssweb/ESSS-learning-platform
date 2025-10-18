@@ -9,8 +9,6 @@ const Courses = () => {
   return (
     <div>
       <CoursesBar />
-
-      {/* Page Header */}
       <div
         className="
           mt-6 mb-4 px-4 text-center
@@ -33,8 +31,6 @@ const Courses = () => {
           Your Courses
         </h1>
       </div>
-
-      {/* Cards */}
       <div className="flex justify-center items-center mb-8">
         <CourseCard
           title="Space Weather"
@@ -52,8 +48,6 @@ const Courses = () => {
           resumeText="Resume"
         />
       </div>
-
-      {/* Pagination */}
       <div className="flex items-center mt-16 mb-40 justify-center">
         <Pagination totalPages={3} />
       </div>

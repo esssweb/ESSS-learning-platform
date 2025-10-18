@@ -1,22 +1,13 @@
 import CoursesBar from "./CoursesBar";
 import CurrentCourse from "./CurrentCourse";
 import CoursesSection from "./CoursesSection";
+import { getCourses } from "../../lib/courses";
 
-const CoursesPage = async () => {
-  const fetchCoursesData = async (skip = 0) => {
-    try {
-      const res = await fetch(
-        `https://dummyjson.com/products?limit=4&skip=${skip}&select=id,title,description,images`
-      );
-      return await res.json();
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      return { products: [] };
-    }
-  };
-
-  const firstBatch = await fetchCoursesData(0);
-  const secondBatch = await fetchCoursesData(4);
+export default async function CoursesPage(): Promise<JSX.Element> {
+  const [firstBatch, secondBatch] = await Promise.all([
+    getCourses(4, 0),
+    getCourses(4, 4),
+  ]);
 
   return (
     <div className="overflow-hidden">
@@ -25,17 +16,15 @@ const CoursesPage = async () => {
 
       <CoursesSection
         title="Most Popular Courses"
-        data={firstBatch.products}
+        data={firstBatch.courses}
         bg="bg-Tertiary"
       />
 
       <CoursesSection
         title="Explore More Courses"
-        data={secondBatch.products}
+        data={secondBatch.courses}
         bg="bg-white"
       />
     </div>
   );
-};
-
-export default CoursesPage;
+}

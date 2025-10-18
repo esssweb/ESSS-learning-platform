@@ -1,14 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 
 export interface ProgressBarProps {
   progress: number;
 }
 
 const ProgressBar: React.FC<ProgressBarProps> = ({ progress }) => {
-  const [currentProgress, setCurrentProgress] = useState(progress);
-
   return (
     <div className="flex items-center">
       <div
@@ -29,12 +27,10 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ progress }) => {
       >
         <div
           className="progress-bar bg-Senary h-18 rounded-full"
-          style={{ width: `${currentProgress}%`, height: "19px" }}
+          style={{ width: `${progress}%`, height: "19px" }}
         ></div>
       </div>
-      <p className="progress-value ml-2 font-bold text-3xl">
-        {currentProgress}%
-      </p>
+      <p className="progress-value ml-2 font-bold text-3xl">{progress}%</p>
     </div>
   );
 };

@@ -29,7 +29,7 @@ const CourseCard: React.FC<Props> = ({
         min-[360px]:max-w-[350px]
         min-[414px]:max-w-[400px]
         sm:min-w-[480px]
-        md:min-w-[640px]
+        md:min-w-[540px]
         lg:min-w-[920px]
         xl:min-w-[1190px]
         2xl:max-w-[1390px]
@@ -44,7 +44,7 @@ const CourseCard: React.FC<Props> = ({
             min-[360px]:aspect-[16/11]
             min-[414px]:aspect-[16/10]
             sm:w-full sm:aspect-[16/10]
-            md:w-full md:h-[340px] md:aspect-auto
+            md:w-full md:h-[310px] md:aspect-auto
             lg:w-[300px] lg:h-[240px]
           "
         >
