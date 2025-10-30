@@ -50,22 +50,24 @@ export type actionButtonsData = {
   module: moduleData;
   modules: moduleData[];
 };
-
 export type courseData = {
-  _id: string;
+  _id?: string;
+  thumbnail?: string;
+  instructor?: string;
+  category?: string[];
+  level?: string;
+  price?: number;
+  rating?: number;
+  listOfStudents?: string[];
+  listOfSubCourses?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  __v?: number;
+
   title: string;
   description: string;
-  instructor: string;
-  category: string[];
-  level: string;
-  price: number;
-  rating: number;
-  thumbnail: string;
-  listOfStudents: string[];
-  listOfSubCourses: string[];
-  createdAt: string;
-  updatedAt: string;
-  __v: number;
+  id?: number;
+  images?: string[];
 };
 
 export type subCoursesData = {
@@ -101,4 +103,15 @@ export type moduleData = {
   subCourseId: string;
   part: number;
   __v: number;
+};
+
+export type CoursesDataProps = {
+  coursesData: courseData[];
+};
+
+export type CourseType = courseData;
+
+export type CourseButtonProps = {
+  style?: string;
+  innerText: string;
 };
