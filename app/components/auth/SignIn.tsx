@@ -40,9 +40,8 @@ const SignIn = () => {
 
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     } catch (err) {
-      if (err instanceof ZodError) {
-        setErrors((prev) => ({ ...prev, [name]: err.errors[0].message }));
-      }
+      const zodError = err as ZodError;
+      setErrors((prev) => ({ ...prev, [name]: zodError.errors[0].message }));
     }
   };
 

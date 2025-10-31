@@ -41,10 +41,9 @@ const Register = () => {
       authSchema.shape[name].parse(value);
 
       setErrors((prev) => ({ ...prev, [name]: undefined }));
-    } catch (err) {
-      if (err instanceof ZodError) {
-        setErrors((prev) => ({ ...prev, [name]: err.errors[0].message }));
-      }
+    } catch (err: unknown) {
+      const zodError = err as ZodError;
+      setErrors((prev) => ({ ...prev, [name]: zodError.errors[0].message }));
     }
   };
 
