@@ -4,7 +4,7 @@ import styles from "./About.module.css";
 
 export default function Quest() {
   return (
-    <div className="flex flex-col md:flex-row px-5">
+    <div className="flex flex-col md:flex-row px-5 mt-12">
       <div className="items-center md:items-start">
         <Image
           src="/assets/images/about/combined.png"

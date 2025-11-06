@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import CoursesBar from "../../components/courses/CoursesBar";
-import CourseCard from "../../components/courses/CourseCard";
-import Pagination from "../../components/explore/dynamic-explore/Pagination";
+import CoursesBar from "../../../components/courses/CoursesBar";
+import CourseCard from "../../../components/courses/CourseCard";
+import Pagination from "../../../components/explore/dynamic-explore/Pagination";
 
 const Courses = () => {
   return (

@@ -2,7 +2,7 @@ import Image from "next/image";
 
 export default function MissionVisionValues() {
   return (
-    <div className="relative flex flex-col text-2xl font-SofiaProSemiBold text-Primary bg-Tertiary pb-5">
+    <div className="relative flex flex-col text-2xl font-SofiaProSemiBold text-Primary bg-Tertiary pb-12">
       {/* Mission Section */}
       <div className="hidden lg:flex flex-row lg:items-center">
         {/* Large screen */}

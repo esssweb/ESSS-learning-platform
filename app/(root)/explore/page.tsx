@@ -1,5 +1,5 @@
 import Link from "next/link";
-import CoursesBar from "../components/courses/CoursesBar";
+import CoursesBar from "../../components/courses/CoursesBar";
 
 const Explore = () => {
   return (
