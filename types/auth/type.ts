@@ -1,6 +1,6 @@
 import {z} from 'zod';
 
-const emailRegx = /^[^\s@]+@[^\s@]+\.(com|org)$/;
+const emailRegx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordRegx = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
 
 export const authSchema = z.object({
