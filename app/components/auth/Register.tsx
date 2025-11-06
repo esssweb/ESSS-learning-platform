@@ -7,12 +7,14 @@ import { registerRequest, authSchema } from "@/types/auth/type";
 import LoadingSpinner from "../LoadingSpinner";
 import { ZodError } from "zod";
 import Link from "next/link";
+import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 
 const Register = () => {
   const [formData, setFormData] = useState<registerRequest>({
     email: "",
     password: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [registerUser, { data, error, isLoading }] = useRegisterUserMutation();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,7 +74,7 @@ const Register = () => {
       </div>
 
       <div className="md:col-span-3 bg-Tertiary flex flex-col items-center">
-        <div className="flex mt-16 lg:mt-28 space-x-2">
+        <div className="flex mt-16 lg:mt-20 space-x-2">
           <h1 className="text-Primary font-SofiaProSemiBold text-xl mt-2">
             Register on ESSS
           </h1>
@@ -100,7 +102,7 @@ const Register = () => {
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col w-full px-4 md:w-1/2 lg:w-1/3 mt-2 md:px-2 lg:px-0"
+          className="flex flex-col w-full px-8 sm:w-3/4 sm:px-0 md:w-1/2 lg:w-1/3 mt-2"
         >
     
           <label className="text-Primary font-SofiaProSemiBold text-sm">
@@ -119,14 +121,23 @@ const Register = () => {
           <label className="text-Primary font-SofiaProSemiBold text-sm">
             Password
           </label>
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            onBlur={(e) => validateField("password", e.target.value)}
-            className="border-2 border-gray-300 rounded-md my-2 p-2"
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              onBlur={(e) => validateField("password", e.target.value)}
+              className="border-2 border-gray-300 rounded-md my-2 p-2 w-full pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-800"
+            >
+              {showPassword ? <AiOutlineEyeInvisible size={20} /> : <AiOutlineEye size={20} />}
+            </button>
+          </div>
           {errors.password && <p className="text-red-500 text-xs">{errors.password}</p>}
 
           <button
