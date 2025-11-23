@@ -64,7 +64,7 @@ export class UserMapper {
   }
 
   static toEntity(domain: User): Partial<UserEntity> {
-    const entity: any = {
+    const entity: Partial<UserEntity> = {
       id: domain.id,
       email: domain.email.getValue(),
       password: domain.password.getValue(),

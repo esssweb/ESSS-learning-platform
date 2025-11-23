@@ -32,10 +32,7 @@ export class LoginUseCase {
     }
 
     // Verify password
-    const isPasswordValid = await this.hashService.compare(
-      dto.password,
-      user.password.getValue(),
-    );
+    const isPasswordValid = await this.hashService.compare(dto.password, user.password.getValue());
 
     if (!isPasswordValid) {
       throw new InvalidCredentialsException();
