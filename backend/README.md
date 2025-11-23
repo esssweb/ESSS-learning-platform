@@ -26,8 +26,9 @@ See [Architecture Documentation](./docs/CLEAN_ARCHITECTURE_STRUCTURE.md) for det
 ## Prerequisites
 
 - Node.js 20+ and npm
-- PostgreSQL database (or Supabase account)
+- PostgreSQL database (local installation or GCP Cloud SQL)
 - Firebase project (for push notifications)
+- Supabase account (for file storage only)
 
 ## Installation
 
@@ -48,8 +49,20 @@ See [Architecture Documentation](./docs/CLEAN_ARCHITECTURE_STRUCTURE.md) for det
 
    Configure the following in `.env`:
    ```env
-   # Database
-   DATABASE_URL="postgresql://user:password@localhost:5432/esss_learning"
+   # Database - Local PostgreSQL
+   DB_HOST="localhost"
+   DB_PORT=5432
+   DB_USERNAME="postgres"
+   DB_PASSWORD="your-password"
+   DB_DATABASE="esss_learning"
+   DB_DIALECT="postgres"
+
+   # Database - GCP PostgreSQL (Production)
+   # DB_HOST="your-gcp-instance-ip"
+   # DB_PORT=5432
+   # DB_USERNAME="postgres"
+   # DB_PASSWORD="your-gcp-password"
+   # DB_DATABASE="esss_learning"
 
    # JWT
    JWT_SECRET="your-secret-key"
@@ -62,7 +75,7 @@ See [Architecture Documentation](./docs/CLEAN_ARCHITECTURE_STRUCTURE.md) for det
    FIREBASE_PRIVATE_KEY="your-private-key"
    FIREBASE_CLIENT_EMAIL="your-client-email"
 
-   # Storage (Supabase)
+   # Supabase (Storage only)
    SUPABASE_URL="your-supabase-url"
    SUPABASE_KEY="your-supabase-key"
 
@@ -73,14 +86,19 @@ See [Architecture Documentation](./docs/CLEAN_ARCHITECTURE_STRUCTURE.md) for det
 
 4. **Set up the database**
    ```bash
-   # Generate Prisma client
-   npx prisma generate
+   # Create PostgreSQL database
+   createdb esss_learning
 
-   # Run migrations
-   npx prisma migrate dev
+   # Or using psql
+   psql -U postgres
+   CREATE DATABASE esss_learning;
+   \q
+
+   # Run Sequelize migrations
+   npx sequelize-cli db:migrate
 
    # (Optional) Seed the database
-   npm run seed
+   npx sequelize-cli db:seed:all
    ```
 
 ## Development
@@ -103,14 +121,26 @@ http://localhost:3000/api/docs
 ### Database Management
 
 ```bash
-# Open Prisma Studio (database GUI)
-npx prisma studio
-
 # Create a new migration
-npx prisma migrate dev --name migration_name
+npx sequelize-cli migration:generate --name migration_name
+
+# Run migrations
+npx sequelize-cli db:migrate
+
+# Undo last migration
+npx sequelize-cli db:migrate:undo
 
 # Reset database (WARNING: deletes all data)
-npx prisma migrate reset
+npx sequelize-cli db:migrate:undo:all
+
+# Create a seeder
+npx sequelize-cli seed:generate --name demo-data
+
+# Run all seeders
+npx sequelize-cli db:seed:all
+
+# Undo last seeder
+npx sequelize-cli db:seed:undo
 ```
 
 ### Running Tests
@@ -158,8 +188,12 @@ src/
 │   ├── application/         # Use cases, DTOs, application services
 │   └── shared/              # Shared core utilities
 ├── infrastructure/          # External dependencies
-│   ├── database/            # Prisma, entities, repositories, mappers
-│   ├── config/              # Configuration
+│   ├── database/            # Sequelize models, entities, repositories, mappers
+│   │   ├── config/          # Database configuration
+│   │   ├── entities/        # Sequelize models
+│   │   ├── migrations/      # Database migrations
+│   │   └── seeders/         # Database seeders
+│   ├── config/              # Application configuration
 │   ├── security/            # Auth guards, strategies, JWT
 │   └── external-services/   # Firebase, storage, email
 ├── presentation/            # API layer
@@ -173,8 +207,8 @@ src/
 
 - **Framework**: NestJS 10+
 - **Language**: TypeScript 5+
-- **Database**: PostgreSQL
-- **ORM**: Prisma
+- **Database**: PostgreSQL (local & GCP Cloud SQL)
+- **ORM**: Sequelize with sequelize-typescript
 - **Authentication**: JWT (Passport.js)
 - **Validation**: class-validator, class-transformer
 - **Documentation**: Swagger/OpenAPI
@@ -241,7 +275,12 @@ See Swagger documentation for complete API reference.
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
+| `DB_HOST` | PostgreSQL host | Yes |
+| `DB_PORT` | PostgreSQL port | Yes |
+| `DB_USERNAME` | PostgreSQL username | Yes |
+| `DB_PASSWORD` | PostgreSQL password | Yes |
+| `DB_DATABASE` | Database name | Yes |
+| `DB_DIALECT` | Database dialect (postgres) | Yes |
 | `JWT_SECRET` | Secret key for JWT tokens | Yes |
 | `JWT_EXPIRES_IN` | Access token expiration | Yes |
 | `REFRESH_TOKEN_SECRET` | Secret for refresh tokens | Yes |
@@ -249,8 +288,8 @@ See Swagger documentation for complete API reference.
 | `FIREBASE_PROJECT_ID` | Firebase project ID | Yes |
 | `FIREBASE_PRIVATE_KEY` | Firebase private key | Yes |
 | `FIREBASE_CLIENT_EMAIL` | Firebase client email | Yes |
-| `SUPABASE_URL` | Supabase project URL | Yes |
-| `SUPABASE_KEY` | Supabase API key | Yes |
+| `SUPABASE_URL` | Supabase project URL (storage) | Yes |
+| `SUPABASE_KEY` | Supabase API key (storage) | Yes |
 | `PORT` | Server port | No (default: 3000) |
 | `NODE_ENV` | Environment | No (default: development) |
 
@@ -261,18 +300,25 @@ See Swagger documentation for complete API reference.
 # Check PostgreSQL is running
 psql -U postgres
 
-# Verify DATABASE_URL in .env
+# Verify database credentials in .env
 # Ensure database exists
+createdb esss_learning
+
+# Test connection
+psql -U postgres -d esss_learning
 ```
 
-### Prisma Issues
+### Sequelize Issues
 ```bash
-# Regenerate Prisma client
-npx prisma generate
+# Re-run migrations
+npx sequelize-cli db:migrate
 
-# Clear Prisma cache
-rm -rf node_modules/.prisma
-npm install
+# Check migration status
+npx sequelize-cli db:migrate:status
+
+# Reset database (careful!)
+npx sequelize-cli db:migrate:undo:all
+npx sequelize-cli db:migrate
 ```
 
 ### Port Already in Use
