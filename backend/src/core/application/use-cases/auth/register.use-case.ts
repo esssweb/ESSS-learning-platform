@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { UserRepositoryInterface } from '../../../domain/repositories/user.repository.interface';
 import { RefreshTokenRepositoryInterface } from '../../../domain/repositories/refresh-token.repository.interface';
 import { DeviceTokenRepositoryInterface } from '../../../domain/repositories/device-token.repository.interface';
@@ -12,14 +12,26 @@ import { PhoneNumber } from '../../../domain/value-objects/phone-number.vo';
 import { User } from '../../../domain/models/user/user.model';
 import { RefreshToken } from '../../../domain/models/auth/refresh-token.model';
 import { DeviceToken } from '../../../domain/models/auth/device-token.model';
+import {
+  DEVICE_TOKEN_REPOSITORY,
+  HASH_SERVICE,
+  REFRESH_TOKEN_REPOSITORY,
+  TOKEN_SERVICE,
+  USER_REPOSITORY,
+} from '../../ports/tokens';
 
 @Injectable()
 export class RegisterUseCase {
   constructor(
+    @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepositoryInterface,
+    @Inject(REFRESH_TOKEN_REPOSITORY)
     private readonly refreshTokenRepository: RefreshTokenRepositoryInterface,
+    @Inject(DEVICE_TOKEN_REPOSITORY)
     private readonly deviceTokenRepository: DeviceTokenRepositoryInterface,
+    @Inject(HASH_SERVICE)
     private readonly hashService: HashServiceInterface,
+    @Inject(TOKEN_SERVICE)
     private readonly tokenService: TokenServiceInterface,
   ) {}
 

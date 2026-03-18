@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { RefreshTokenRepositoryInterface } from '../../../domain/repositories/refresh-token.repository.interface';
 import { UserRepositoryInterface } from '../../../domain/repositories/user.repository.interface';
 import { TokenServiceInterface } from '../../ports/output/token.service.interface';
@@ -6,12 +6,16 @@ import { RefreshTokenRequestDto } from '../../dto/auth/refresh-token-request.dto
 import { RefreshTokenResponseDto } from '../../dto/auth/refresh-token-response.dto';
 import { RefreshToken } from '../../../domain/models/auth/refresh-token.model';
 import { UnauthorizedAccessException } from '../../../domain/exceptions/unauthorized-access.exception';
+import { REFRESH_TOKEN_REPOSITORY, TOKEN_SERVICE, USER_REPOSITORY } from '../../ports/tokens';
 
 @Injectable()
 export class RefreshTokenUseCase {
   constructor(
+    @Inject(REFRESH_TOKEN_REPOSITORY)
     private readonly refreshTokenRepository: RefreshTokenRepositoryInterface,
+    @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepositoryInterface,
+    @Inject(TOKEN_SERVICE)
     private readonly tokenService: TokenServiceInterface,
   ) {}
 
