@@ -1,6 +1,14 @@
+import { SecurityModule } from '@infrastructure/security/security.module';
+import { AuthModule } from '@modules/auth/auth.model';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { SequelizeModule } from '@nestjs/sequelize';
+import { AllExceptionsFilter } from '@presentation/http/fillters/all-exceptions.filter';
+import { DomainExceptionFilter } from '@presentation/http/fillters/domain-exception.filter';
+import { HttpExceptionFilter } from '@presentation/http/fillters/http-exception.filter';
+import { LoggingInterceptor } from '@presentation/http/interceptors/logging.interceptor';
+import { TransformInterceptor } from '@presentation/http/interceptors/transform.interceptor';
 
 @Module({
   imports: [
@@ -23,13 +31,18 @@ import { SequelizeModule } from '@nestjs/sequelize';
       logging: process.env.NODE_ENV === 'development' ? console.log : false,
     }),
 
-    // Feature modules will be imported here
-    // AuthModule,
-    // UsersModule,
-    // CoursesModule,
-    // etc.
+    // AuthModule
+    AuthModule,
+    // SecurityModules
+    SecurityModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    { provide: APP_FILTER, useClass: HttpExceptionFilter },
+    { provide: APP_FILTER, useClass: DomainExceptionFilter },
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
+  ],
 })
 export class AppModule {}
