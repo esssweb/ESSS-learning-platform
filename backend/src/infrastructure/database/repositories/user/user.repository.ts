@@ -47,9 +47,9 @@ export class UserRepository
     return this.toDomain(existing);
   }
 
-  async findByEmail(email: string): Promise<User | null> {
+  async findByAuthId(authId: string): Promise<User | null> {
     const entity = await this.userModel.findOne({
-      where: { email: email.toLowerCase().trim() },
+      where: { authId },
     });
 
     return entity ? this.toDomain(entity) : null;
@@ -70,22 +70,6 @@ export class UserRepository
     });
 
     return entities.map((entity) => this.toDomain(entity));
-  }
-
-  async findActiveUsers(): Promise<User[]> {
-    const entities = await this.userModel.findAll({
-      where: { isActive: true },
-    });
-
-    return entities.map((entity) => this.toDomain(entity));
-  }
-
-  async existsByEmail(email: string): Promise<boolean> {
-    const count = await this.userModel.count({
-      where: { email: email.toLowerCase().trim() },
-    });
-
-    return count > 0;
   }
 
   async existsByPhone(phoneNumber: string): Promise<boolean> {

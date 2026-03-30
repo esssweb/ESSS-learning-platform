@@ -16,11 +16,9 @@ export interface UserPaginationResult {
 }
 
 export interface UserRepositoryInterface extends BaseRepositoryInterface<User> {
-  findByEmail(email: string): Promise<User | null>;
+  findByAuthId(authId: string): Promise<User | null>;
   findByPhone(phoneNumber: string): Promise<User | null>;
   findByRole(role: UserRole): Promise<User[]>;
-  findActiveUsers(): Promise<User[]>;
-  existsByEmail(email: string): Promise<boolean>;
   existsByPhone(phoneNumber: string): Promise<boolean>;
   findWithPagination(options: UserPaginationOptions): Promise<UserPaginationResult>;
 }

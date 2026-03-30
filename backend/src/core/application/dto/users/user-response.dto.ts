@@ -10,7 +10,6 @@ export class UserResponseDto {
   profilePicture?: string;
   gender?: Gender;
   role: UserRole;
-  isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }

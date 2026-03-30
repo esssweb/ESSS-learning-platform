@@ -4,3 +4,8 @@ export * from './invalid-credentials.exception';
 export * from './unauthorized-access.exception';
 export * from './user-already-exists.exception';
 export * from './phone-number-already-in-use.exception';
+export * from './otp-expired.exception';
+export * from './otp-invalid.exception';
+export * from './otp-max-attempts.exception';
+export * from './otp-rate-limit.exception';
+export * from './email-not-verified.exception';

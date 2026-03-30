@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { AuthRepositoryInterface } from '../../../domain/repositories/auth.repository.interface';
 import { UserRepositoryInterface } from '../../../domain/repositories/user.repository.interface';
 import { RefreshTokenRepositoryInterface } from '../../../domain/repositories/refresh-token.repository.interface';
 import { DeviceTokenRepositoryInterface } from '../../../domain/repositories/device-token.repository.interface';
@@ -12,6 +13,7 @@ import { UnauthorizedAccessException } from '../../../domain/exceptions/unauthor
 import { RefreshToken } from '../../../domain/models/auth/refresh-token.model';
 import { DeviceToken } from '../../../domain/models/auth/device-token.model';
 import {
+  AUTH_REPOSITORY,
   DEVICE_TOKEN_REPOSITORY,
   HASH_SERVICE,
   REFRESH_TOKEN_REPOSITORY,
@@ -22,6 +24,8 @@ import {
 @Injectable()
 export class LoginUseCase {
   constructor(
+    @Inject(AUTH_REPOSITORY)
+    private readonly authRepository: AuthRepositoryInterface,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepositoryInterface,
     @Inject(REFRESH_TOKEN_REPOSITORY)
@@ -35,24 +39,32 @@ export class LoginUseCase {
   ) {}
 
   async execute(dto: LoginRequestDto): Promise<LoginResponseDto> {
-    // Find user by email
     const email = new Email(dto.email);
-    const user = await this.userRepository.findByEmail(email.getValue());
 
-    if (!user) {
+    // Find auth record by email
+    const auth = await this.authRepository.findByEmail(email.getValue());
+
+    if (!auth || !auth.password) {
       throw new InvalidCredentialsException();
     }
 
     // Verify password
-    const isPasswordValid = await this.hashService.compare(dto.password, user.password.getValue());
+    const isPasswordValid = await this.hashService.compare(dto.password, auth.password);
 
     if (!isPasswordValid) {
       throw new InvalidCredentialsException();
     }
 
-    // Check if user is active
-    if (!user.isActive) {
+    // Check if account is active
+    if (!auth.isActive) {
       throw new UnauthorizedAccessException('inactive account');
+    }
+
+    // Find user record by authId
+    const user = await this.userRepository.findByAuthId(auth.id!);
+
+    if (!user) {
+      throw new InvalidCredentialsException();
     }
 
     // Handle device token if provided
@@ -72,7 +84,7 @@ export class LoginUseCase {
     // Generate tokens
     const tokenPayload = {
       userId: user.id!,
-      email: user.email.getValue(),
+      email: auth.email,
       role: user.role,
     };
 
@@ -84,19 +96,18 @@ export class LoginUseCase {
       userId: user.id!,
       token: refreshTokenString,
       deviceTokenId,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       isRevoked: false,
     });
 
     await this.refreshTokenRepository.create(refreshToken);
 
-    // Return response
     return {
       accessToken,
       refreshToken: refreshTokenString,
       user: {
         id: user.id!,
-        email: user.email.getValue(),
+        email: auth.email,
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,

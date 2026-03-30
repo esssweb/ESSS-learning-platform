@@ -2,7 +2,8 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('users', {
+    // Create auth table
+    await queryInterface.createTable('auth', {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -10,86 +11,119 @@ module.exports = {
         allowNull: false,
       },
       email: {
-        type: Sequelize.STRING,
+        type: Sequelize.TEXT,
         allowNull: false,
         unique: true,
       },
       password: {
-        type: Sequelize.STRING,
-        allowNull: false,
-      },
-      firstName: {
-        type: Sequelize.STRING,
-        allowNull: false,
-      },
-      lastName: {
-        type: Sequelize.STRING,
-        allowNull: false,
-      },
-      phoneNumber: {
-        type: Sequelize.STRING,
-        allowNull: true,
-        unique: true,
-      },
-      profilePicture: {
-        type: Sequelize.STRING,
+        type: Sequelize.TEXT,
         allowNull: true,
       },
-      gender: {
-        type: Sequelize.ENUM('MALE', 'FEMALE', 'OTHER'),
+      email_verified: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      otp_code: {
+        type: Sequelize.TEXT,
         allowNull: true,
       },
-      role: {
-        type: Sequelize.ENUM('STUDENT', 'INSTRUCTOR', 'ADMIN', 'SUPER_ADMIN'),
-        allowNull: false,
+      otp_expires_at: {
+        type: Sequelize.DATE,
+        allowNull: true,
       },
-      isActive: {
+      otp_attempt_count: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+      },
+      otp_request_count: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+      },
+      last_otp_sent_at: {
+        type: Sequelize.DATE,
+        allowNull: true,
+      },
+      verification_token: {
+        type: Sequelize.TEXT,
+        allowNull: true,
+      },
+      is_active: {
         type: Sequelize.BOOLEAN,
         allowNull: false,
         defaultValue: true,
       },
-      level: {
-        type: Sequelize.ENUM('BEGINNER', 'INTERMEDIATE', 'ADVANCED'),
-        allowNull: true,
-      },
-      bio: {
-        type: Sequelize.TEXT,
-        allowNull: true,
-      },
-      expertise: {
-        type: Sequelize.ARRAY(Sequelize.STRING),
-        allowNull: true,
-        defaultValue: [],
-      },
-      department: {
-        type: Sequelize.STRING,
-        allowNull: true,
-      },
-      permissions: {
-        type: Sequelize.ARRAY(Sequelize.STRING),
-        allowNull: true,
-        defaultValue: [],
-      },
-      enrollmentDate: {
-        type: Sequelize.DATE,
-        allowNull: true,
-      },
-      hireDate: {
-        type: Sequelize.DATE,
-        allowNull: true,
-      },
-      createdAt: {
+      created_at: {
         type: Sequelize.DATE,
         allowNull: false,
         defaultValue: Sequelize.NOW,
       },
-      updatedAt: {
+      updated_at: {
         type: Sequelize.DATE,
         allowNull: false,
         defaultValue: Sequelize.NOW,
       },
     });
 
+    // Create users table
+    await queryInterface.createTable('users', {
+      id: {
+        type: Sequelize.UUID,
+        defaultValue: Sequelize.UUIDV4,
+        primaryKey: true,
+        allowNull: false,
+      },
+      auth_id: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        unique: true,
+        references: {
+          model: 'auth',
+          key: 'id',
+        },
+        onDelete: 'CASCADE',
+      },
+      first_name: {
+        type: Sequelize.TEXT,
+        allowNull: false,
+      },
+      last_name: {
+        type: Sequelize.TEXT,
+        allowNull: false,
+      },
+      phone_number: {
+        type: Sequelize.TEXT,
+        allowNull: true,
+        unique: true,
+      },
+      profile_picture: {
+        type: Sequelize.TEXT,
+        allowNull: true,
+      },
+      gender: {
+        type: Sequelize.TEXT,
+        allowNull: true,
+      },
+      role: {
+        type: Sequelize.TEXT,
+        allowNull: false,
+        defaultValue: 'STUDENT',
+      },
+      created_at: {
+        type: Sequelize.DATE,
+        allowNull: false,
+        defaultValue: Sequelize.NOW,
+      },
+      updated_at: {
+        type: Sequelize.DATE,
+        allowNull: false,
+        defaultValue: Sequelize.NOW,
+      },
+    });
+
+    // Create device_tokens table
     await queryInterface.createTable('device_tokens', {
       id: {
         type: Sequelize.UUID,
@@ -97,46 +131,45 @@ module.exports = {
         primaryKey: true,
         allowNull: false,
       },
-      userId: {
+      user_id: {
         type: Sequelize.UUID,
         allowNull: false,
         references: {
           model: 'users',
           key: 'id',
         },
-        onUpdate: 'CASCADE',
         onDelete: 'CASCADE',
       },
-      firebaseToken: {
+      firebase_token: {
         type: Sequelize.TEXT,
         allowNull: false,
-        unique: true,
       },
-      deviceName: {
-        type: Sequelize.STRING,
+      device_name: {
+        type: Sequelize.TEXT,
         allowNull: true,
       },
-      deviceType: {
-        type: Sequelize.STRING,
+      device_type: {
+        type: Sequelize.TEXT,
         allowNull: true,
       },
-      isActive: {
+      is_active: {
         type: Sequelize.BOOLEAN,
         allowNull: false,
         defaultValue: true,
       },
-      createdAt: {
+      created_at: {
         type: Sequelize.DATE,
         allowNull: false,
         defaultValue: Sequelize.NOW,
       },
-      updatedAt: {
+      updated_at: {
         type: Sequelize.DATE,
         allowNull: false,
         defaultValue: Sequelize.NOW,
       },
     });
 
+    // Create refresh_tokens table
     await queryInterface.createTable('refresh_tokens', {
       id: {
         type: Sequelize.UUID,
@@ -144,14 +177,13 @@ module.exports = {
         primaryKey: true,
         allowNull: false,
       },
-      userId: {
+      user_id: {
         type: Sequelize.UUID,
         allowNull: false,
         references: {
           model: 'users',
           key: 'id',
         },
-        onUpdate: 'CASCADE',
         onDelete: 'CASCADE',
       },
       token: {
@@ -159,52 +191,29 @@ module.exports = {
         allowNull: false,
         unique: true,
       },
-      deviceTokenId: {
+      device_token_id: {
         type: Sequelize.UUID,
         allowNull: true,
         references: {
           model: 'device_tokens',
           key: 'id',
         },
-        onUpdate: 'CASCADE',
         onDelete: 'SET NULL',
       },
-      expiresAt: {
+      expires_at: {
         type: Sequelize.DATE,
         allowNull: false,
       },
-      isRevoked: {
+      is_revoked: {
         type: Sequelize.BOOLEAN,
         allowNull: false,
         defaultValue: false,
       },
-      createdAt: {
+      created_at: {
         type: Sequelize.DATE,
         allowNull: false,
         defaultValue: Sequelize.NOW,
       },
-    });
-
-    await queryInterface.addIndex('users', ['email'], { unique: true, name: 'idx_users_email_unique' });
-    await queryInterface.addIndex('users', ['phoneNumber'], {
-      unique: true,
-      name: 'idx_users_phone_unique',
-    });
-    await queryInterface.addIndex('users', ['role'], { name: 'idx_users_role' });
-    await queryInterface.addIndex('device_tokens', ['userId'], { name: 'idx_device_tokens_user_id' });
-    await queryInterface.addIndex('device_tokens', ['firebaseToken'], {
-      unique: true,
-      name: 'idx_device_tokens_firebase_token',
-    });
-    await queryInterface.addIndex('refresh_tokens', ['userId'], {
-      name: 'idx_refresh_tokens_user_id',
-    });
-    await queryInterface.addIndex('refresh_tokens', ['token'], {
-      unique: true,
-      name: 'idx_refresh_tokens_token_unique',
-    });
-    await queryInterface.addIndex('refresh_tokens', ['expiresAt'], {
-      name: 'idx_refresh_tokens_expires_at',
     });
   },
 
@@ -212,9 +221,6 @@ module.exports = {
     await queryInterface.dropTable('refresh_tokens');
     await queryInterface.dropTable('device_tokens');
     await queryInterface.dropTable('users');
-
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_users_gender";');
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_users_role";');
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_users_level";');
+    await queryInterface.dropTable('auth');
   },
 };

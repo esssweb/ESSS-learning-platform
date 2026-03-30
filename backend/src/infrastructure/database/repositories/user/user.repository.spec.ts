@@ -1,6 +1,4 @@
 import { UserRole } from '../../../../core/domain/enums/user-role.enum';
-import { Email } from '../../../../core/domain/value-objects/email.vo';
-import { Password } from '../../../../core/domain/value-objects/password.vo';
 import { User } from '../../../../core/domain/models/user/user.model';
 import { UserEntity } from '../../entities/user.entity';
 import { UserRepository } from './user.repository';
@@ -24,32 +22,21 @@ describe('UserRepository', () => {
 
   it('creates and maps a user', async () => {
     const domainUser = new User({
-      email: new Email('test@example.com'),
-      password: new Password('hashed-password', true),
+      authId: 'auth-id',
       firstName: 'Test',
       lastName: 'User',
       role: UserRole.STUDENT,
-      isActive: true,
     });
 
     userModel.create.mockResolvedValue({
       id: 'user-id',
-      email: 'test@example.com',
-      password: 'hashed-password',
+      authId: 'auth-id',
       firstName: 'Test',
       lastName: 'User',
       phoneNumber: null,
       profilePicture: null,
       gender: null,
       role: UserRole.STUDENT,
-      isActive: true,
-      level: null,
-      bio: null,
-      expertise: [],
-      department: null,
-      permissions: [],
-      enrollmentDate: null,
-      hireDate: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -57,7 +44,7 @@ describe('UserRepository', () => {
     const result = await repository.create(domainUser);
 
     expect(userModel.create).toHaveBeenCalledTimes(1);
-    expect(result.email.getValue()).toBe('test@example.com');
+    expect(result.authId).toBe('auth-id');
     expect(result.role).toBe(UserRole.STUDENT);
   });
 
@@ -66,22 +53,13 @@ describe('UserRepository', () => {
       rows: [
         {
           id: 'user-id',
-          email: 'test@example.com',
-          password: 'hashed-password',
+          authId: 'auth-id',
           firstName: 'Test',
           lastName: 'User',
           phoneNumber: null,
           profilePicture: null,
           gender: null,
           role: UserRole.STUDENT,
-          isActive: true,
-          level: null,
-          bio: null,
-          expertise: [],
-          department: null,
-          permissions: [],
-          enrollmentDate: null,
-          hireDate: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         },

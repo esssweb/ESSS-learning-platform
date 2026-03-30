@@ -27,9 +27,6 @@ export class UserResponseHttpDto {
   @ApiProperty({ enum: UserRole })
   role: UserRole;
 
-  @ApiProperty()
-  isActive: boolean;
-
   @ApiPropertyOptional()
   createdAt?: Date;
 

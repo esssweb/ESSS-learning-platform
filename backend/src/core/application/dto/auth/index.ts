@@ -4,3 +4,7 @@ export * from './register-request.dto';
 export * from './register-response.dto';
 export * from './refresh-token-request.dto';
 export * from './refresh-token-response.dto';
+export * from './send-otp-request.dto';
+export * from './send-otp-response.dto';
+export * from './verify-otp-request.dto';
+export * from './verify-otp-response.dto';

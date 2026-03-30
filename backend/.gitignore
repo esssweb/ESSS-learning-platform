@@ -90,6 +90,7 @@ temp/
 # Documentation build
 docs/.vitepress/dist
 docs/.vitepress/cache
+docs/Personal
 
 # Local development
 .env.backup

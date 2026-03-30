@@ -1,12 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { HASH_SERVICE, USER_REPOSITORY } from '../../ports/tokens';
+import { AUTH_REPOSITORY, HASH_SERVICE, USER_REPOSITORY } from '../../ports/tokens';
 import { HashServiceInterface } from '../../ports/output/hash.service.interface';
+import { AuthRepositoryInterface } from '../../../domain/repositories/auth.repository.interface';
 import { UserRepositoryInterface } from '../../../domain/repositories/user.repository.interface';
 import { CreateUserRequestDto } from '../../dto/users/create-user-request.dto';
 import { UserResponseDto } from '../../dto/users/user-response.dto';
 import { Email } from '../../../domain/value-objects/email.vo';
-import { Password } from '../../../domain/value-objects/password.vo';
 import { PhoneNumber } from '../../../domain/value-objects/phone-number.vo';
+import { Auth } from '../../../domain/models/auth/auth.model';
 import { User } from '../../../domain/models/user/user.model';
 import { PhoneNumberAlreadyInUseException } from '../../../domain/exceptions/phone-number-already-in-use.exception';
 import { UserAlreadyExistsException } from '../../../domain/exceptions/user-already-exists.exception';
@@ -15,6 +16,8 @@ import { mapUserToResponseDto } from './user-response.mapper';
 @Injectable()
 export class CreateUserUseCase {
   constructor(
+    @Inject(AUTH_REPOSITORY)
+    private readonly authRepository: AuthRepositoryInterface,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepositoryInterface,
     @Inject(HASH_SERVICE)
@@ -23,8 +26,8 @@ export class CreateUserUseCase {
 
   async execute(dto: CreateUserRequestDto): Promise<UserResponseDto> {
     const email = new Email(dto.email);
-    const existingByEmail = await this.userRepository.existsByEmail(email.getValue());
-    if (existingByEmail) {
+    const existingAuth = await this.authRepository.findByEmail(email.getValue());
+    if (existingAuth && existingAuth.isFullyRegistered()) {
       throw new UserAlreadyExistsException(email.getValue());
     }
 
@@ -37,20 +40,38 @@ export class CreateUserUseCase {
       }
     }
 
+    // Create auth record with password (admin-created, skip OTP)
     const hashedPassword = await this.hashService.hash(dto.password);
+    let auth: Auth;
+
+    if (existingAuth) {
+      // Incomplete auth record exists, update it
+      existingAuth.setPassword(hashedPassword);
+      auth = await this.authRepository.update(existingAuth.id!, existingAuth);
+    } else {
+      auth = new Auth({
+        email: email.getValue(),
+        password: hashedPassword,
+        emailVerified: true,
+        otpAttemptCount: 0,
+        otpRequestCount: 0,
+        isActive: true,
+      });
+      auth = await this.authRepository.create(auth);
+    }
+
+    // Create user record
     const user = new User({
-      email,
-      password: new Password(hashedPassword, true),
+      authId: auth.id!,
       firstName: dto.firstName,
       lastName: dto.lastName,
       phoneNumber,
       profilePicture: dto.profilePicture,
       gender: dto.gender,
       role: dto.role,
-      isActive: true,
     });
 
     const createdUser = await this.userRepository.create(user);
-    return mapUserToResponseDto(createdUser);
+    return mapUserToResponseDto(createdUser, auth.email);
   }
 }

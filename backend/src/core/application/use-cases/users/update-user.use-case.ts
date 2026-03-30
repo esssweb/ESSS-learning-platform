@@ -1,12 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { HASH_SERVICE, USER_REPOSITORY } from '../../ports/tokens';
-import { HashServiceInterface } from '../../ports/output/hash.service.interface';
+import { AUTH_REPOSITORY, USER_REPOSITORY } from '../../ports/tokens';
+import { AuthRepositoryInterface } from '../../../domain/repositories/auth.repository.interface';
 import { UserRepositoryInterface } from '../../../domain/repositories/user.repository.interface';
 import { UpdateUserRequestDto } from '../../dto/users/update-user-request.dto';
 import { UserResponseDto } from '../../dto/users/user-response.dto';
 import { UserNotFoundException } from '../../../domain/exceptions/user-not-found.exception';
 import { PhoneNumber } from '../../../domain/value-objects/phone-number.vo';
-import { Password } from '../../../domain/value-objects/password.vo';
 import { PhoneNumberAlreadyInUseException } from '../../../domain/exceptions/phone-number-already-in-use.exception';
 import { mapUserToResponseDto } from './user-response.mapper';
 
@@ -15,8 +14,8 @@ export class UpdateUserUseCase {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepositoryInterface,
-    @Inject(HASH_SERVICE)
-    private readonly hashService: HashServiceInterface,
+    @Inject(AUTH_REPOSITORY)
+    private readonly authRepository: AuthRepositoryInterface,
   ) {}
 
   async execute(userId: string, dto: UpdateUserRequestDto): Promise<UserResponseDto> {
@@ -44,20 +43,8 @@ export class UpdateUserUseCase {
       gender: dto.gender,
     });
 
-    if (typeof dto.isActive === 'boolean') {
-      if (dto.isActive) {
-        user.activate();
-      } else {
-        user.deactivate();
-      }
-    }
-
-    if (dto.password) {
-      const hashedPassword = await this.hashService.hash(dto.password);
-      user.changePassword(new Password(hashedPassword, true));
-    }
-
     const updatedUser = await this.userRepository.update(userId, user);
-    return mapUserToResponseDto(updatedUser);
+    const auth = await this.authRepository.findById(updatedUser.authId);
+    return mapUserToResponseDto(updatedUser, auth?.email ?? '');
   }
 }

@@ -6,6 +6,4 @@ export class UpdateUserRequestDto {
   phoneNumber?: string;
   profilePicture?: string;
   gender?: Gender;
-  password?: string;
-  isActive?: boolean;
 }
