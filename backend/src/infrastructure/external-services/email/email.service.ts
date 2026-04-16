@@ -14,7 +14,7 @@ export class NodemailerEmailService implements EmailServiceInterface {
       this.transporter = nodemailer.createTransport({
         host,
         port: parseInt(this.configService.get<string>('SMTP_PORT') || '587', 10),
-        secure: false,
+        secure: this.configService.get<string>('SMTP_SECURE') === 'true',
         auth: {
           user: this.configService.get<string>('SMTP_USER'),
           pass: this.configService.get<string>('SMTP_PASSWORD'),
@@ -29,6 +29,9 @@ export class NodemailerEmailService implements EmailServiceInterface {
 
   async sendOtp(email: string, otpCode: string): Promise<void> {
     if (!this.transporter) {
+      if (this.configService.get<string>('NODE_ENV') === 'production') {
+        throw new Error('SMTP is not configured in production');
+      }
       this.logger.log(`[DEV] OTP for ${email}: ${otpCode}`);
       return;
     }

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { randomInt } from 'crypto';
 import { AuthRepositoryInterface } from '../../../domain/repositories/auth.repository.interface';
 import { HashServiceInterface } from '../../ports/output/hash.service.interface';
 import { EmailServiceInterface } from '../../ports/output/email.service.interface';
@@ -37,7 +38,7 @@ export class SendVerificationOtpUseCase {
     }
 
     // Generate 6-digit OTP
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpCode = randomInt(100000, 1000000).toString();
     const hashedOtp = await this.hashService.hash(otpCode);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
