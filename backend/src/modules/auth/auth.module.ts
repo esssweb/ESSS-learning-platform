@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   EMAIL_SERVICE,
   HASH_SERVICE,
@@ -14,6 +15,7 @@ import { DatabaseModule } from '../../infrastructure/database/database.module';
 import { BcryptHashService } from '../../infrastructure/security/services/bcrypt-hash.service';
 import { JwtTokenService } from '../../infrastructure/security/services/jwt-token.service';
 import { NodemailerEmailService } from '../../infrastructure/external-services/email/email.service';
+import { GoogleScriptEmailService } from '../../infrastructure/external-services/email/google-script-email.service';
 import { AuthController } from '../../presentation/http/controllers/auth/auth.controller';
 
 @Module({
@@ -34,9 +36,19 @@ import { AuthController } from '../../presentation/http/controllers/auth/auth.co
       provide: TOKEN_SERVICE,
       useClass: JwtTokenService,
     },
+    // Email service selection:
+    //   GOOGLE_SCRIPT_URL set  → GoogleScriptEmailService (recommended)
+    //   SMTP_HOST set          → NodemailerEmailService
+    //   neither                → NodemailerEmailService (logs OTP to console in dev)
     {
       provide: EMAIL_SERVICE,
-      useClass: NodemailerEmailService,
+      useFactory: (config: ConfigService) => {
+        if (config.get<string>('GOOGLE_SCRIPT_URL')) {
+          return new GoogleScriptEmailService(config);
+        }
+        return new NodemailerEmailService(config);
+      },
+      inject: [ConfigService],
     },
   ],
   exports: [RegisterUseCase, LoginUseCase, LogoutUseCase, RefreshTokenUseCase],
