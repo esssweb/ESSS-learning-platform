@@ -1,6 +1,13 @@
 import { Module } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import {
+  AuthEntity,
+  DeviceTokenEntity,
+  RefreshTokenEntity,
+  UserEntity,
+} from './entities';
+import { databaseProviders } from './database.providers';
 
 @Module({
   imports: [
@@ -19,6 +26,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       }),
       inject: [ConfigService],
     }),
+    SequelizeModule.forFeature([
+      AuthEntity,
+      UserEntity,
+      RefreshTokenEntity,
+      DeviceTokenEntity,
+    ]),
   ],
+  providers: [...databaseProviders],
+  exports: [SequelizeModule, ...databaseProviders],
 })
 export class DatabaseModule {}
