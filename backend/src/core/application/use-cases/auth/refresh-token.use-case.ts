@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { AuthRepositoryInterface } from '../../../domain/repositories/auth.repository.interface';
 import { RefreshTokenRepositoryInterface } from '../../../domain/repositories/refresh-token.repository.interface';
 import { UserRepositoryInterface } from '../../../domain/repositories/user.repository.interface';
 import { TokenServiceInterface } from '../../ports/output/token.service.interface';
@@ -6,12 +7,23 @@ import { RefreshTokenRequestDto } from '../../dto/auth/refresh-token-request.dto
 import { RefreshTokenResponseDto } from '../../dto/auth/refresh-token-response.dto';
 import { RefreshToken } from '../../../domain/models/auth/refresh-token.model';
 import { UnauthorizedAccessException } from '../../../domain/exceptions/unauthorized-access.exception';
+import {
+  AUTH_REPOSITORY,
+  REFRESH_TOKEN_REPOSITORY,
+  TOKEN_SERVICE,
+  USER_REPOSITORY,
+} from '../../ports/tokens';
 
 @Injectable()
 export class RefreshTokenUseCase {
   constructor(
+    @Inject(REFRESH_TOKEN_REPOSITORY)
     private readonly refreshTokenRepository: RefreshTokenRepositoryInterface,
+    @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepositoryInterface,
+    @Inject(AUTH_REPOSITORY)
+    private readonly authRepository: AuthRepositoryInterface,
+    @Inject(TOKEN_SERVICE)
     private readonly tokenService: TokenServiceInterface,
   ) {}
 
@@ -39,7 +51,13 @@ export class RefreshTokenUseCase {
     // Get user
     const user = await this.userRepository.findById(payload.userId);
 
-    if (!user || !user.isActive) {
+    if (!user) {
+      throw new UnauthorizedAccessException('user not found or inactive');
+    }
+
+    const auth = await this.authRepository.findById(user.authId);
+
+    if (!auth || !auth.isActive) {
       throw new UnauthorizedAccessException('user not found or inactive');
     }
 
@@ -50,7 +68,7 @@ export class RefreshTokenUseCase {
     // Generate new tokens
     const tokenPayload = {
       userId: user.id!,
-      email: user.email.getValue(),
+      email: auth.email,
       role: user.role,
     };
 

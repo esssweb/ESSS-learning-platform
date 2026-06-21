@@ -9,17 +9,18 @@ export class RefreshTokenStrategy extends PassportStrategy(Strategy, 'jwt-refres
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_REFRESH_SECRET,
+      secretOrKey: process.env.REFRESH_TOKEN_SECRET,
     });
   }
 
   async validate(payload: JwtPayload) {
-    if (payload.type !== 'refresh') {
+    if (payload.type && payload.type !== 'refresh') {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
     return {
-      userId: payload.sub,
+      id: payload.userId ?? payload.sub,
+      userId: payload.userId ?? payload.sub,
       email: payload.email,
       role: payload.role,
     };

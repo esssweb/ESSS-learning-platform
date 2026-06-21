@@ -3,6 +3,11 @@ import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '@core/domain/enums/user-role.enum';
 
 export class RegisterRequestDto {
+  @ApiProperty({ description: 'Verification token from the verify-otp step' })
+  @IsString()
+  @IsNotEmpty()
+  verificationToken: string;
+
   @ApiProperty({ example: 'user@example.com' })
   @IsEmail()
   email: string;

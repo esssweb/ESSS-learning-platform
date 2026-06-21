@@ -16,10 +16,11 @@ import { BcryptHashService } from '../../infrastructure/security/services/bcrypt
 import { JwtTokenService } from '../../infrastructure/security/services/jwt-token.service';
 import { NodemailerEmailService } from '../../infrastructure/external-services/email/email.service';
 import { GoogleScriptEmailService } from '../../infrastructure/external-services/email/google-script-email.service';
+import { SecurityModule } from '../../infrastructure/security/security.module';
 import { AuthController } from '../../presentation/http/controllers/auth/auth.controller';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, SecurityModule],
   controllers: [AuthController],
   providers: [
     SendVerificationOtpUseCase,

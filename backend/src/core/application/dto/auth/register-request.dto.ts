@@ -6,7 +6,7 @@ export class RegisterRequestDto {
   password: string;
   firstName: string;
   lastName: string;
-  verificationToken?: string;
+  verificationToken: string;
   phoneNumber?: string;
   gender?: Gender;
   role: UserRole;

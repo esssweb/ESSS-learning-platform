@@ -13,8 +13,8 @@ export class TokenService implements ITokenService {
         type: 'access',
       },
       {
-        secret: process.env.JWT_ACCESS_SECRET,
-        expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+        secret: process.env.JWT_SECRET,
+        expiresIn: process.env.JWT_EXPIRES_IN || '15m',
       },
     );
   }
@@ -26,8 +26,8 @@ export class TokenService implements ITokenService {
         type: 'refresh',
       },
       {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+        secret: process.env.REFRESH_TOKEN_SECRET,
+        expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
       },
     );
   }
@@ -38,7 +38,7 @@ export class TokenService implements ITokenService {
   ): Promise<T> {
     try {
       const secret =
-        type === 'access' ? process.env.JWT_ACCESS_SECRET : process.env.JWT_REFRESH_SECRET;
+        type === 'access' ? process.env.JWT_SECRET : process.env.REFRESH_TOKEN_SECRET;
 
       return await this.jwtService.verifyAsync<T>(token, { secret });
     } catch {

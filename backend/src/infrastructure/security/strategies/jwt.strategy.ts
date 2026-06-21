@@ -9,17 +9,18 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_ACCESS_SECRET,
+      secretOrKey: process.env.JWT_SECRET,
     });
   }
 
   async validate(payload: JwtPayload) {
-    if (payload.type !== 'access') {
+    if (payload.type && payload.type !== 'access') {
       throw new UnauthorizedException('Invalid access token');
     }
 
     return {
-      userId: payload.sub,
+      id: payload.userId ?? payload.sub,
+      userId: payload.userId ?? payload.sub,
       email: payload.email,
       role: payload.role,
     };
