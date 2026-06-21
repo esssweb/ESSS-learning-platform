@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomInt } from 'crypto';
 import { AuthRepositoryInterface } from '../../../domain/repositories/auth.repository.interface';
 import { HashServiceInterface } from '../../ports/output/hash.service.interface';
@@ -17,6 +17,8 @@ import {
 
 @Injectable()
 export class SendVerificationOtpUseCase {
+  private readonly logger = new Logger(SendVerificationOtpUseCase.name);
+
   constructor(
     @Inject(AUTH_REPOSITORY)
     private readonly authRepository: AuthRepositoryInterface,
@@ -60,6 +62,10 @@ export class SendVerificationOtpUseCase {
       });
       auth.setOtp(hashedOtp, expiresAt);
       await this.authRepository.create(auth);
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      this.logger.log(`[DEV] OTP for ${emailValue}: ${otpCode}`);
     }
 
     // Send OTP via email
