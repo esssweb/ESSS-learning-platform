@@ -1,8 +1,19 @@
-import { Table, Column, Model, DataType, PrimaryKey, Default, IsUUID } from 'sequelize-typescript';
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  PrimaryKey,
+  Default,
+  IsUUID,
+  ForeignKey,
+} from 'sequelize-typescript';
+import { AuthEntity } from './auth.entity';
 
 @Table({
   tableName: 'users',
   timestamps: true,
+  underscored: true,
 })
 export class UserEntity extends Model {
   @IsUUID(4)
@@ -11,18 +22,14 @@ export class UserEntity extends Model {
   @Column(DataType.UUID)
   id: string;
 
+  @ForeignKey(() => AuthEntity)
   @Column({
-    type: DataType.STRING,
+    type: DataType.UUID,
     allowNull: false,
     unique: true,
+    field: 'auth_id',
   })
-  email: string;
-
-  @Column({
-    type: DataType.STRING,
-    allowNull: false,
-  })
-  password: string;
+  authId: string;
 
   @Column({
     type: DataType.STRING,
@@ -49,66 +56,15 @@ export class UserEntity extends Model {
   profilePicture: string;
 
   @Column({
-    type: DataType.ENUM('MALE', 'FEMALE', 'OTHER'),
+    type: DataType.TEXT,
     allowNull: true,
   })
   gender: string;
 
   @Column({
-    type: DataType.ENUM('STUDENT', 'INSTRUCTOR', 'ADMIN', 'SUPER_ADMIN'),
+    type: DataType.TEXT,
     allowNull: false,
+    defaultValue: 'STUDENT',
   })
   role: string;
-
-  @Column({
-    type: DataType.BOOLEAN,
-    allowNull: false,
-    defaultValue: true,
-  })
-  isActive: boolean;
-
-  // Role-specific fields
-  @Column({
-    type: DataType.ENUM('BEGINNER', 'INTERMEDIATE', 'ADVANCED'),
-    allowNull: true,
-  })
-  level: string; // For students
-
-  @Column({
-    type: DataType.TEXT,
-    allowNull: true,
-  })
-  bio: string; // For instructors
-
-  @Column({
-    type: DataType.ARRAY(DataType.STRING),
-    allowNull: true,
-    defaultValue: [],
-  })
-  expertise: string[]; // For instructors
-
-  @Column({
-    type: DataType.STRING,
-    allowNull: true,
-  })
-  department: string; // For admins
-
-  @Column({
-    type: DataType.ARRAY(DataType.STRING),
-    allowNull: true,
-    defaultValue: [],
-  })
-  permissions: string[]; // For super admins
-
-  @Column({
-    type: DataType.DATE,
-    allowNull: true,
-  })
-  enrollmentDate: Date; // For students
-
-  @Column({
-    type: DataType.DATE,
-    allowNull: true,
-  })
-  hireDate: Date; // For instructors/admins/super admins
 }

@@ -16,6 +16,7 @@ import { DeviceTokenEntity } from './device-token.entity';
   tableName: 'refresh_tokens',
   timestamps: true,
   updatedAt: false,
+  underscored: true,
 })
 export class RefreshTokenEntity extends Model {
   @IsUUID(4)

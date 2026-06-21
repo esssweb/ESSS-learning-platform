@@ -1,20 +1,16 @@
-import { Email } from '../../value-objects/email.vo';
-import { Password } from '../../value-objects/password.vo';
 import { PhoneNumber } from '../../value-objects/phone-number.vo';
 import { UserRole } from '../../enums/user-role.enum';
 import { Gender } from '../../enums/gender.enum';
 
 export interface UserProps {
   id?: string;
-  email: Email;
-  password: Password;
+  authId: string;
   firstName: string;
   lastName: string;
   phoneNumber?: PhoneNumber;
   profilePicture?: string;
   gender?: Gender;
   role: UserRole;
-  isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -30,12 +26,8 @@ export class User {
     return this.props.id;
   }
 
-  get email(): Email {
-    return this.props.email;
-  }
-
-  get password(): Password {
-    return this.props.password;
+  get authId(): string {
+    return this.props.authId;
   }
 
   get firstName(): string {
@@ -66,10 +58,6 @@ export class User {
     return this.props.role;
   }
 
-  get isActive(): boolean {
-    return this.props.isActive;
-  }
-
   get createdAt(): Date | undefined {
     return this.props.createdAt;
   }
@@ -92,18 +80,6 @@ export class User {
     if (updates.gender) this.props.gender = updates.gender;
   }
 
-  changePassword(newPassword: Password): void {
-    this.props.password = newPassword;
-  }
-
-  activate(): void {
-    this.props.isActive = true;
-  }
-
-  deactivate(): void {
-    this.props.isActive = false;
-  }
-
   hasRole(role: UserRole): boolean {
     return this.props.role === role;
   }
@@ -111,7 +87,7 @@ export class User {
   toJSON() {
     return {
       id: this.id,
-      email: this.email.getValue(),
+      authId: this.authId,
       firstName: this.firstName,
       lastName: this.lastName,
       fullName: this.fullName,
@@ -119,7 +95,6 @@ export class User {
       profilePicture: this.profilePicture,
       gender: this.gender,
       role: this.role,
-      isActive: this.isActive,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };

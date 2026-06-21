@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { UserResponseDto } from '../../dto/users/user-response.dto';
-import { USER_REPOSITORY } from '../../ports/tokens';
+import { AUTH_REPOSITORY, USER_REPOSITORY } from '../../ports/tokens';
+import { AuthRepositoryInterface } from '../../../domain/repositories/auth.repository.interface';
 import { UserRepositoryInterface } from '../../../domain/repositories/user.repository.interface';
 import { UserNotFoundException } from '../../../domain/exceptions/user-not-found.exception';
 import { mapUserToResponseDto } from './user-response.mapper';
@@ -10,6 +11,8 @@ export class GetUserUseCase {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepositoryInterface,
+    @Inject(AUTH_REPOSITORY)
+    private readonly authRepository: AuthRepositoryInterface,
   ) {}
 
   async execute(userId: string): Promise<UserResponseDto> {
@@ -18,6 +21,8 @@ export class GetUserUseCase {
       throw new UserNotFoundException(userId);
     }
 
-    return mapUserToResponseDto(user);
+    const auth = await this.authRepository.findById(user.authId);
+
+    return mapUserToResponseDto(user, auth?.email ?? '');
   }
 }

@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { USER_REPOSITORY } from '../../ports/tokens';
+import { AUTH_REPOSITORY, USER_REPOSITORY } from '../../ports/tokens';
+import { AuthRepositoryInterface } from '../../../domain/repositories/auth.repository.interface';
 import { UserRepositoryInterface } from '../../../domain/repositories/user.repository.interface';
 import { UpdateUserRequestDto } from '../../dto/users/update-user-request.dto';
 import { UserResponseDto } from '../../dto/users/user-response.dto';
@@ -13,6 +14,8 @@ export class UpdateUserUseCase {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepositoryInterface,
+    @Inject(AUTH_REPOSITORY)
+    private readonly authRepository: AuthRepositoryInterface,
   ) {}
 
   async execute(userId: string, dto: UpdateUserRequestDto): Promise<UserResponseDto> {
@@ -41,6 +44,7 @@ export class UpdateUserUseCase {
     });
 
     const updatedUser = await this.userRepository.update(userId, user);
-    return mapUserToResponseDto(updatedUser);
+    const auth = await this.authRepository.findById(updatedUser.authId);
+    return mapUserToResponseDto(updatedUser, auth?.email ?? '');
   }
 }

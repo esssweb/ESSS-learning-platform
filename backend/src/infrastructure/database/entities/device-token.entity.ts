@@ -14,6 +14,7 @@ import { UserEntity } from './user.entity';
 @Table({
   tableName: 'device_tokens',
   timestamps: true,
+  underscored: true,
 })
 export class DeviceTokenEntity extends Model {
   @IsUUID(4)

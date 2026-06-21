@@ -1,8 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ListUsersRequestDto } from '../../dto/users/list-users-request.dto';
 import { ListUsersResponseDto } from '../../dto/users/list-users-response.dto';
+import { AuthRepositoryInterface } from '../../../domain/repositories/auth.repository.interface';
 import { UserRepositoryInterface } from '../../../domain/repositories/user.repository.interface';
-import { USER_REPOSITORY } from '../../ports/tokens';
+import { AUTH_REPOSITORY, USER_REPOSITORY } from '../../ports/tokens';
 import { mapUserToResponseDto } from './user-response.mapper';
 
 @Injectable()
@@ -10,6 +11,8 @@ export class ListUsersUseCase {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepositoryInterface,
+    @Inject(AUTH_REPOSITORY)
+    private readonly authRepository: AuthRepositoryInterface,
   ) {}
 
   async execute(dto: ListUsersRequestDto): Promise<ListUsersResponseDto> {
@@ -22,8 +25,15 @@ export class ListUsersUseCase {
       role: dto.role,
     });
 
+    const usersWithEmail = await Promise.all(
+      result.data.map(async (user) => {
+        const auth = await this.authRepository.findById(user.authId);
+        return mapUserToResponseDto(user, auth?.email ?? '');
+      }),
+    );
+
     return {
-      data: result.data.map((user) => mapUserToResponseDto(user)),
+      data: usersWithEmail,
       total: result.total,
       page: result.page,
       limit: result.limit,
