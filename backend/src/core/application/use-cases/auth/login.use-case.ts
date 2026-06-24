@@ -40,34 +40,28 @@ export class LoginUseCase {
 
   async execute(dto: LoginRequestDto): Promise<LoginResponseDto> {
     const email = new Email(dto.email);
-
-    // Find auth record by email
     const auth = await this.authRepository.findByEmail(email.getValue());
 
     if (!auth || !auth.password) {
       throw new InvalidCredentialsException();
     }
 
-    // Verify password
     const isPasswordValid = await this.hashService.compare(dto.password, auth.password);
 
     if (!isPasswordValid) {
       throw new InvalidCredentialsException();
     }
 
-    // Check if account is active
     if (!auth.isActive) {
       throw new UnauthorizedAccessException('inactive account');
     }
 
-    // Find user record by authId
     const user = await this.userRepository.findByAuthId(auth.id!);
 
     if (!user) {
       throw new InvalidCredentialsException();
     }
 
-    // Handle device token if provided
     let deviceTokenId: string | undefined;
     if (dto.deviceToken) {
       const deviceToken = new DeviceToken({
@@ -81,7 +75,6 @@ export class LoginUseCase {
       deviceTokenId = savedDeviceToken.id;
     }
 
-    // Generate tokens
     const tokenPayload = {
       userId: user.id!,
       email: auth.email,

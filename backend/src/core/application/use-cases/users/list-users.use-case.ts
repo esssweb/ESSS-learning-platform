@@ -25,7 +25,6 @@ export class ListUsersUseCase {
       role: dto.role,
     });
 
-    // Fetch auth records for emails
     const usersWithEmail = await Promise.all(
       result.data.map(async (user) => {
         const auth = await this.authRepository.findById(user.authId);

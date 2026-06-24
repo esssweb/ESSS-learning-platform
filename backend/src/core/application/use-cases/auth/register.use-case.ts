@@ -40,29 +40,33 @@ export class RegisterUseCase {
   ) {}
 
   async execute(dto: RegisterRequestDto): Promise<RegisterResponseDto> {
-    // Verify the verification token JWT
-    const verifiedPayload = this.tokenService.verifyVerificationToken(
-      dto.verificationToken,
-    );
+    let verifiedPayload: { email: string };
+    try {
+      verifiedPayload = this.tokenService.verifyVerificationToken(
+        dto.verificationToken,
+      );
+    } catch {
+      throw new EmailNotVerifiedException();
+    }
 
-    // Find auth record
+    if (verifiedPayload.email !== dto.email.toLowerCase().trim()) {
+      throw new EmailNotVerifiedException();
+    }
+
     const auth = await this.authRepository.findByEmail(verifiedPayload.email);
 
     if (!auth || !auth.emailVerified || auth.verificationToken !== dto.verificationToken) {
       throw new EmailNotVerifiedException();
     }
 
-    // Ensure not already registered
     if (auth.isFullyRegistered()) {
       throw new UserAlreadyExistsException(auth.email);
     }
 
-    // Hash password and set on auth record
     const hashedPassword = await this.hashService.hash(dto.password);
     auth.setPassword(hashedPassword);
     await this.authRepository.update(auth.id!, auth);
 
-    // Create user record
     const user = new User({
       authId: auth.id!,
       firstName: dto.firstName,
@@ -74,7 +78,6 @@ export class RegisterUseCase {
 
     const createdUser = await this.userRepository.create(user);
 
-    // Handle device token if provided
     let deviceTokenId: string | undefined;
     if (dto.deviceToken) {
       const deviceToken = new DeviceToken({
@@ -88,7 +91,6 @@ export class RegisterUseCase {
       deviceTokenId = savedDeviceToken.id;
     }
 
-    // Generate tokens
     const tokenPayload = {
       userId: createdUser.id!,
       email: auth.email,

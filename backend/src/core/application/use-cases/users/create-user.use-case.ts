@@ -40,27 +40,25 @@ export class CreateUserUseCase {
       }
     }
 
-    // Create auth record with password (admin-created, skip OTP)
     const hashedPassword = await this.hashService.hash(dto.password);
-    let auth: Auth;
 
+    let auth: Auth;
     if (existingAuth) {
-      // Incomplete auth record exists, update it
       existingAuth.setPassword(hashedPassword);
       auth = await this.authRepository.update(existingAuth.id!, existingAuth);
     } else {
-      auth = new Auth({
-        email: email.getValue(),
-        password: hashedPassword,
-        emailVerified: true,
-        otpAttemptCount: 0,
-        otpRequestCount: 0,
-        isActive: true,
-      });
-      auth = await this.authRepository.create(auth);
+      auth = await this.authRepository.create(
+        new Auth({
+          email: email.getValue(),
+          password: hashedPassword,
+          emailVerified: true,
+          otpAttemptCount: 0,
+          otpRequestCount: 0,
+          isActive: true,
+        }),
+      );
     }
 
-    // Create user record
     const user = new User({
       authId: auth.id!,
       firstName: dto.firstName,

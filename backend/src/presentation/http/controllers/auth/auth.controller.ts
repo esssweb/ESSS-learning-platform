@@ -5,15 +5,24 @@ import {
   HttpException,
   HttpStatus,
   Post,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SendVerificationOtpUseCase } from '../../../../core/application/use-cases/auth/send-verification-otp.use-case';
 import { VerifyOtpUseCase } from '../../../../core/application/use-cases/auth/verify-otp.use-case';
 import { RegisterUseCase } from '../../../../core/application/use-cases/auth/register.use-case';
+import { LoginUseCase } from '../../../../core/application/use-cases/auth/login.use-case';
+import { RefreshTokenUseCase } from '../../../../core/application/use-cases/auth/refresh-token.use-case';
+import { LogoutUseCase } from '../../../../core/application/use-cases/auth/logout.use-case';
 import { DomainException } from '../../../../core/domain/exceptions/domain.exception';
 import { SendOtpDto } from '../../dto/auth/send-otp.dto';
 import { VerifyOtpDto } from '../../dto/auth/verify-otp.dto';
 import { RegisterDto } from '../../dto/auth/register.dto';
+import { LoginRequestDto } from '../../dto/auth/login-request.dto';
+import { RefreshTokenRequestDto } from '../../dto/auth/refresh-token-request.dto';
+import { Public } from '../../../../infrastructure/security/decorators/public.decorator';
+import { JwtAuthGuard } from '../../../../infrastructure/security/guards/jwt-auth.guard';
+import { CurrentUser } from '../../../../infrastructure/security/decorators/current-user.deorator';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -22,8 +31,12 @@ export class AuthController {
     private readonly sendVerificationOtpUseCase: SendVerificationOtpUseCase,
     private readonly verifyOtpUseCase: VerifyOtpUseCase,
     private readonly registerUseCase: RegisterUseCase,
+    private readonly loginUseCase: LoginUseCase,
+    private readonly refreshTokenUseCase: RefreshTokenUseCase,
+    private readonly logoutUseCase: LogoutUseCase,
   ) {}
 
+  @Public()
   @Post('send-verification-otp')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Send verification OTP to email' })
@@ -38,6 +51,7 @@ export class AuthController {
     }
   }
 
+  @Public()
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify OTP and get verification token' })
@@ -53,6 +67,7 @@ export class AuthController {
     }
   }
 
+  @Public()
   @Post('register')
   @ApiOperation({ summary: 'Register a new user with verified email' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
@@ -74,6 +89,58 @@ export class AuthController {
     } catch (error) {
       this.handleDomainError(error);
     }
+  }
+
+  @Public()
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login with verified account credentials' })
+  @ApiResponse({ status: 200, description: 'User logged in successfully' })
+  async login(@Body() body: LoginRequestDto) {
+    try {
+      return await this.loginUseCase.execute({
+        email: body.email,
+        password: body.password,
+      });
+    } catch (error) {
+      this.handleDomainError(error);
+    }
+  }
+
+  @Public()
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Refresh access token' })
+  @ApiResponse({ status: 200, description: 'Access token refreshed successfully' })
+  async refresh(@Body() body: RefreshTokenRequestDto) {
+    try {
+      return await this.refreshTokenUseCase.execute({
+        refreshToken: body.refreshToken,
+      });
+    } catch (error) {
+      this.handleDomainError(error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Logout current session' })
+  async logout(
+    @CurrentUser() user: { id: string; userId: string },
+    @Body('refreshToken') refreshToken?: string,
+  ): Promise<void> {
+    await this.logoutUseCase.execute(user.userId ?? user.id, refreshToken);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Post('revoke-all-sessions')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Logout all sessions' })
+  async revokeAll(@CurrentUser() user: { id: string; userId: string }): Promise<void> {
+    await this.logoutUseCase.execute(user.userId ?? user.id);
   }
 
   private handleDomainError(error: unknown): never {

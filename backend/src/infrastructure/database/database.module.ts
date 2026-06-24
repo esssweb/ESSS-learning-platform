@@ -1,19 +1,22 @@
-import { Global, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AuthEntity, DeviceTokenEntity, RefreshTokenEntity, UserEntity } from './entities';
+import {
+  AuthEntity,
+  DeviceTokenEntity,
+  RefreshTokenEntity,
+  UserEntity,
+} from './entities';
 import { databaseProviders } from './database.providers';
 
-@Global()
 @Module({
   imports: [
-    ConfigModule,
     SequelizeModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         dialect: 'postgres',
         host: configService.get('DB_HOST'),
-        port: parseInt(configService.get('DB_PORT') || '5432', 10),
+        port: configService.get('DB_PORT'),
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_DATABASE'),
@@ -23,7 +26,12 @@ import { databaseProviders } from './database.providers';
       }),
       inject: [ConfigService],
     }),
-    SequelizeModule.forFeature([AuthEntity, UserEntity, RefreshTokenEntity, DeviceTokenEntity]),
+    SequelizeModule.forFeature([
+      AuthEntity,
+      UserEntity,
+      RefreshTokenEntity,
+      DeviceTokenEntity,
+    ]),
   ],
   providers: [...databaseProviders],
   exports: [SequelizeModule, ...databaseProviders],

@@ -17,12 +17,12 @@ import {
 @Injectable()
 export class RefreshTokenUseCase {
   constructor(
-    @Inject(AUTH_REPOSITORY)
-    private readonly authRepository: AuthRepositoryInterface,
     @Inject(REFRESH_TOKEN_REPOSITORY)
     private readonly refreshTokenRepository: RefreshTokenRepositoryInterface,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepositoryInterface,
+    @Inject(AUTH_REPOSITORY)
+    private readonly authRepository: AuthRepositoryInterface,
     @Inject(TOKEN_SERVICE)
     private readonly tokenService: TokenServiceInterface,
   ) {}
@@ -32,7 +32,7 @@ export class RefreshTokenUseCase {
     let payload;
     try {
       payload = this.tokenService.verifyRefreshToken(dto.refreshToken);
-    } catch {
+    } catch (error) {
       throw new UnauthorizedAccessException('invalid refresh token');
     }
 
@@ -43,20 +43,22 @@ export class RefreshTokenUseCase {
       throw new UnauthorizedAccessException('refresh token not found');
     }
 
+    // Validate refresh token
     if (!refreshToken.isValid()) {
       throw new UnauthorizedAccessException('refresh token expired or revoked');
     }
 
     // Get user
     const user = await this.userRepository.findById(payload.userId);
+
     if (!user) {
-      throw new UnauthorizedAccessException('user not found');
+      throw new UnauthorizedAccessException('user not found or inactive');
     }
 
-    // Get auth record for email and active check
     const auth = await this.authRepository.findById(user.authId);
+
     if (!auth || !auth.isActive) {
-      throw new UnauthorizedAccessException('account inactive');
+      throw new UnauthorizedAccessException('user not found or inactive');
     }
 
     // Revoke old refresh token
@@ -73,11 +75,12 @@ export class RefreshTokenUseCase {
     const accessToken = this.tokenService.generateAccessToken(tokenPayload);
     const newRefreshTokenString = this.tokenService.generateRefreshToken(tokenPayload);
 
+    // Save new refresh token
     const newRefreshToken = new RefreshToken({
       userId: user.id!,
       token: newRefreshTokenString,
       deviceTokenId: refreshToken.deviceTokenId,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       isRevoked: false,
     });
 

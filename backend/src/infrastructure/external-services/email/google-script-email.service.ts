@@ -35,6 +35,9 @@ export class GoogleScriptEmailService implements EmailServiceInterface {
     const verificationUrl = `${frontendUrl}/verify-email?email=${encodeURIComponent(email)}&code=${encodeURIComponent(otpCode)}`;
 
     this.logger.log(`Sending OTP email via Google Apps Script to ${email}`);
+    if (this.configService.get<string>('NODE_ENV') !== 'production') {
+      this.logger.log(`[DEV] OTP for ${email}: ${otpCode}`);
+    }
 
     const response = await fetch(scriptUrl, {
       method: 'POST',
