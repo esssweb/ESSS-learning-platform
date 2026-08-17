@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpException,
-  HttpStatus,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SendVerificationOtpUseCase } from '../../../../core/application/use-cases/auth/send-verification-otp.use-case';
 import { VerifyOtpUseCase } from '../../../../core/application/use-cases/auth/verify-otp.use-case';
@@ -14,7 +6,6 @@ import { RegisterUseCase } from '../../../../core/application/use-cases/auth/reg
 import { LoginUseCase } from '../../../../core/application/use-cases/auth/login.use-case';
 import { RefreshTokenUseCase } from '../../../../core/application/use-cases/auth/refresh-token.use-case';
 import { LogoutUseCase } from '../../../../core/application/use-cases/auth/logout.use-case';
-import { DomainException } from '../../../../core/domain/exceptions/domain.exception';
 import { SendOtpDto } from '../../dto/auth/send-otp.dto';
 import { VerifyOtpDto } from '../../dto/auth/verify-otp.dto';
 import { RegisterDto } from '../../dto/auth/register.dto';
@@ -24,6 +15,8 @@ import { Public } from '../../../../infrastructure/security/decorators/public.de
 import { JwtAuthGuard } from '../../../../infrastructure/security/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../../infrastructure/security/decorators/current-user.deorator';
 
+// Domain exceptions propagate to the global DomainExceptionFilter, which owns
+// the domain-error -> HTTP status mapping for the whole application.
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
@@ -41,14 +34,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Send verification OTP to email' })
   @ApiResponse({ status: 200, description: 'OTP sent successfully' })
+  @ApiResponse({ status: 429, description: 'Too many OTP requests' })
   async sendOtp(@Body() body: SendOtpDto) {
-    try {
-      return await this.sendVerificationOtpUseCase.execute({
-        email: body.email,
-      });
-    } catch (error) {
-      this.handleDomainError(error);
-    }
+    return this.sendVerificationOtpUseCase.execute({ email: body.email });
   }
 
   @Public()
@@ -56,39 +44,31 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify OTP and get verification token' })
   @ApiResponse({ status: 200, description: 'OTP verified, verification token returned' })
+  @ApiResponse({ status: 400, description: 'OTP invalid, expired, or attempts exceeded' })
   async verifyOtp(@Body() body: VerifyOtpDto) {
-    try {
-      return await this.verifyOtpUseCase.execute({
-        email: body.email,
-        otpCode: body.otpCode,
-      });
-    } catch (error) {
-      this.handleDomainError(error);
-    }
+    return this.verifyOtpUseCase.execute({ email: body.email, otpCode: body.otpCode });
   }
 
   @Public()
   @Post('register')
   @ApiOperation({ summary: 'Register a new user with verified email' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
+  @ApiResponse({ status: 403, description: 'Email has not been verified' })
+  @ApiResponse({ status: 409, description: 'User already exists' })
   async register(@Body() body: RegisterDto) {
-    try {
-      return await this.registerUseCase.execute({
-        verificationToken: body.verificationToken,
-        email: body.email,
-        password: body.password,
-        firstName: body.firstName,
-        lastName: body.lastName,
-        phoneNumber: body.phoneNumber,
-        gender: body.gender,
-        role: body.role,
-        deviceToken: body.deviceToken,
-        deviceName: body.deviceName,
-        deviceType: body.deviceType,
-      });
-    } catch (error) {
-      this.handleDomainError(error);
-    }
+    return this.registerUseCase.execute({
+      verificationToken: body.verificationToken,
+      email: body.email,
+      password: body.password,
+      firstName: body.firstName,
+      lastName: body.lastName,
+      phoneNumber: body.phoneNumber,
+      gender: body.gender,
+      role: body.role,
+      deviceToken: body.deviceToken,
+      deviceName: body.deviceName,
+      deviceType: body.deviceType,
+    });
   }
 
   @Public()
@@ -96,15 +76,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with verified account credentials' })
   @ApiResponse({ status: 200, description: 'User logged in successfully' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials or inactive account' })
   async login(@Body() body: LoginRequestDto) {
-    try {
-      return await this.loginUseCase.execute({
-        email: body.email,
-        password: body.password,
-      });
-    } catch (error) {
-      this.handleDomainError(error);
-    }
+    return this.loginUseCase.execute({ email: body.email, password: body.password });
   }
 
   @Public()
@@ -112,14 +86,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })
   @ApiResponse({ status: 200, description: 'Access token refreshed successfully' })
+  @ApiResponse({ status: 401, description: 'Refresh token invalid, expired, or revoked' })
   async refresh(@Body() body: RefreshTokenRequestDto) {
-    try {
-      return await this.refreshTokenUseCase.execute({
-        refreshToken: body.refreshToken,
-      });
-    } catch (error) {
-      this.handleDomainError(error);
-    }
+    return this.refreshTokenUseCase.execute({ refreshToken: body.refreshToken });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -141,26 +110,5 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout all sessions' })
   async revokeAll(@CurrentUser() user: { id: string; userId: string }): Promise<void> {
     await this.logoutUseCase.execute(user.userId ?? user.id);
-  }
-
-  private handleDomainError(error: unknown): never {
-    if (error instanceof DomainException) {
-      const message = error.message.toLowerCase();
-      if (message.includes('already exists')) {
-        throw new HttpException(error.message, HttpStatus.CONFLICT);
-      }
-      if (message.includes('rate') || message.includes('too many')) {
-        throw new HttpException(error.message, HttpStatus.TOO_MANY_REQUESTS);
-      }
-      if (message.includes('expired') || message.includes('invalid') || message.includes('not verified')) {
-        throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-      }
-      if (message.includes('maximum') || message.includes('attempts')) {
-        throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-      }
-      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    }
-
-    throw error;
   }
 }

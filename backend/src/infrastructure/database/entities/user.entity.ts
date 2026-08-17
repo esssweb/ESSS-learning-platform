@@ -32,26 +32,31 @@ export class UserEntity extends Model {
   authId: string;
 
   @Column({
-    type: DataType.STRING,
+    type: DataType.TEXT,
     allowNull: false,
+    field: 'first_name',
   })
   firstName: string;
 
   @Column({
-    type: DataType.STRING,
+    type: DataType.TEXT,
     allowNull: false,
+    field: 'last_name',
   })
   lastName: string;
 
   @Column({
-    type: DataType.STRING,
+    type: DataType.TEXT,
     allowNull: true,
+    unique: true,
+    field: 'phone_number',
   })
   phoneNumber: string;
 
   @Column({
-    type: DataType.STRING,
+    type: DataType.TEXT,
     allowNull: true,
+    field: 'profile_picture',
   })
   profilePicture: string;
 
