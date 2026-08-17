@@ -1,3 +1,5 @@
+import { TwoFactorMethod } from '../../enums/two-factor-method.enum';
+
 export interface AuthProps {
   id?: string;
   email: string;
@@ -175,6 +177,83 @@ export class Auth {
 
   deactivate(): void {
     this.props.isActive = false;
+  }
+
+  activeTwoFactorMethod(): TwoFactorMethod {
+    return this.props.totpEnabledAt != null ? TwoFactorMethod.TOTP : TwoFactorMethod.EMAIL;
+  }
+
+  isTotpEnrollmentPending(): boolean {
+    return this.props.totpSecret != null && this.props.totpEnabledAt == null;
+  }
+
+  enrollTotp(encryptedSecret: string): void {
+    this.props.totpSecret = encryptedSecret;
+    this.props.totpEnabledAt = undefined;
+    this.props.totpLastUsedStep = undefined;
+  }
+
+  confirmTotp(): void {
+    this.props.totpEnabledAt = new Date();
+  }
+
+  disableTotp(): void {
+    this.props.totpSecret = undefined;
+    this.props.totpEnabledAt = undefined;
+    this.props.totpLastUsedStep = undefined;
+  }
+
+  hasTotpStepBeenUsed(step: number): boolean {
+    if (this.props.totpLastUsedStep == null) return false;
+    return step <= this.props.totpLastUsedStep;
+  }
+
+  consumeTotpStep(step: number): void {
+    this.props.totpLastUsedStep = step;
+  }
+
+  isLoginOtpExpired(): boolean {
+    if (!this.props.loginOtpExpiresAt) return true;
+    return new Date() > this.props.loginOtpExpiresAt;
+  }
+
+  canAttemptLoginOtp(): boolean {
+    return (
+      this.props.loginOtpAttemptCount < 5 &&
+      !this.isLoginOtpExpired() &&
+      this.props.loginOtpCode != null
+    );
+  }
+
+  canRequestLoginOtp(): boolean {
+    if (this.props.loginOtpRequestCount < 3) return true;
+    if (!this.props.loginOtpLastSentAt) return true;
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    return this.props.loginOtpLastSentAt < oneHourAgo;
+  }
+
+  incrementLoginOtpAttempts(): void {
+    this.props.loginOtpAttemptCount += 1;
+  }
+
+  setLoginOtp(hashedOtp: string, expiresAt: Date): void {
+    this.props.loginOtpCode = hashedOtp;
+    this.props.loginOtpExpiresAt = expiresAt;
+    this.props.loginOtpAttemptCount = 0;
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    if (!this.props.loginOtpLastSentAt || this.props.loginOtpLastSentAt < oneHourAgo) {
+      this.props.loginOtpRequestCount = 1;
+    } else {
+      this.props.loginOtpRequestCount += 1;
+    }
+    this.props.loginOtpLastSentAt = new Date();
+  }
+
+  clearLoginOtp(): void {
+    this.props.loginOtpCode = undefined;
+    this.props.loginOtpExpiresAt = undefined;
+    this.props.loginOtpAttemptCount = 0;
   }
 
   toJSON() {
