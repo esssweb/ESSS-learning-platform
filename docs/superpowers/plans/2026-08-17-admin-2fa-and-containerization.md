@@ -631,7 +631,9 @@ describe('Auth two-factor behaviour', () => {
     const auth = new Auth(baseProps());
     auth.setLoginOtp('hash', new Date(Date.now() + 60_000));
 
-    for (let i = 0; i < 4; i += 1) {
+    // Five attempts are allowed; the sixth is blocked. `i < 4` would leave the
+    // count at 4, and 4 < 5 is still true, so the final assertion would fail.
+    for (let i = 0; i < 5; i += 1) {
       expect(auth.canAttemptLoginOtp()).toBe(true);
       auth.incrementLoginOtpAttempts();
     }
