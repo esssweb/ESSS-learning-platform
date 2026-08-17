@@ -48,6 +48,10 @@ class EnvironmentVariables {
   @IsNotEmpty()
   REFRESH_TOKEN_EXPIRES_IN: string;
 
+  @IsString()
+  @IsNotEmpty()
+  TOTP_ENCRYPTION_KEY: string;
+
   @IsOptional()
   @IsString()
   CORS_ORIGIN?: string;
