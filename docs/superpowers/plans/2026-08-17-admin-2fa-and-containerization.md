@@ -111,11 +111,13 @@ NestJS does not let env-file values override existing `process.env`, so Azure ap
 
 - [ ] **Step 3: Make sequelize-cli load the same file**
 
-`database.config.js` currently reads `process.env` but loads no env file at all, so `npm run db:migrate` has only ever worked with shell-exported vars. Add as the first lines of `backend/src/infrastructure/database/config/database.config.js`:
+`database.config.js` already begins with a bare `require('dotenv').config()`, which loads `.env`. **Replace that line** (do not add a second one) in `backend/src/infrastructure/database/config/database.config.js`:
 
 ```javascript
 require('dotenv').config({ path: require('path').resolve(process.cwd(), '.env.dev') });
 ```
+
+Replacing rather than adding is the point: dotenv does not override already-set keys, so keeping both calls leaves two competing env sources.
 
 - [ ] **Step 4: Ignore `.env.dev`**
 

@@ -166,7 +166,7 @@ Email deliverability becomes a login dependency for admins on the EMAIL factor. 
 `.env.dev` replaces `.env`, with **four** touch points:
 
 1. `app.module.ts` — `envFilePath: '.env.dev'`. NestJS does not let env-file values override existing `process.env`, so Azure app settings take precedence automatically and the same code works locally and deployed.
-2. `src/infrastructure/database/config/database.config.js` — add `require('dotenv').config({ path: '.env.dev' })`. This file currently reads `process.env` and loads **no** env file at all, so `npm run db:migrate` has only ever worked with vars exported in the shell. Fixing it here closes a pre-existing gap.
+2. `src/infrastructure/database/config/database.config.js` — **replace** its existing bare `require('dotenv').config()` with an explicit `require('dotenv').config({ path: '.env.dev' })`. sequelize-cli runs outside Nest, so it loads env separately; left alone it would keep reading `.env` while the app read `.env.dev`. Replacing rather than adding matters: dotenv does not override already-set keys, so keeping both calls would leave two competing sources and reintroduce the ambiguity `.env.dev` exists to remove.
 3. `.gitignore` — add `.env.dev`. It is **not** currently covered by the existing `.env*` patterns. Verify with `git check-ignore -v .env.dev`.
 4. `.env.dev.example` — committed, listing every variable including `TOTP_ENCRYPTION_KEY`. The existing `backend/.env.example` is **deleted**, so there is exactly one template and no ambiguity about which file is authoritative.
 
