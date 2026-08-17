@@ -34,6 +34,7 @@ describe('Auth two-factor behaviour', () => {
     const auth = new Auth(baseProps());
     auth.enrollTotp('encrypted-secret');
     auth.confirmTotp();
+    auth.consumeTotpStep(100);
 
     auth.disableTotp();
 
@@ -49,6 +50,11 @@ describe('Auth two-factor behaviour', () => {
     expect(auth.hasTotpStepBeenUsed(99)).toBe(true);
     expect(auth.hasTotpStepBeenUsed(100)).toBe(true);
     expect(auth.hasTotpStepBeenUsed(101)).toBe(false);
+  });
+
+  it('has never used a TOTP step on a fresh Auth', () => {
+    const auth = new Auth(baseProps());
+    expect(auth.hasTotpStepBeenUsed(1)).toBe(false);
   });
 
   it('allows login OTP attempts until the fifth failure', () => {
@@ -71,6 +77,18 @@ describe('Auth two-factor behaviour', () => {
     expect(auth.canAttemptLoginOtp()).toBe(false);
   });
 
+  it('allows the first three login OTP requests within the hour', () => {
+    const auth = new Auth(baseProps());
+    const later = () => new Date(Date.now() + 600_000);
+
+    expect(auth.canRequestLoginOtp()).toBe(true);
+    auth.setLoginOtp('a', later());
+    expect(auth.canRequestLoginOtp()).toBe(true);
+    auth.setLoginOtp('b', later());
+    expect(auth.canRequestLoginOtp()).toBe(true);
+    auth.setLoginOtp('c', later());
+  });
+
   it('rate limits to three login OTP requests per hour', () => {
     const auth = new Auth(baseProps());
     const later = () => new Date(Date.now() + 600_000);
@@ -82,9 +100,22 @@ describe('Auth two-factor behaviour', () => {
     expect(auth.canRequestLoginOtp()).toBe(false);
   });
 
+  it('resets the login OTP request count after an hour has passed', () => {
+    const auth = new Auth(
+      baseProps({
+        loginOtpRequestCount: 3,
+        loginOtpLastSentAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      }),
+    );
+
+    expect(auth.canRequestLoginOtp()).toBe(true);
+  });
+
   it('clears login OTP state', () => {
     const auth = new Auth(baseProps());
     auth.setLoginOtp('hash', new Date(Date.now() + 60_000));
+    auth.incrementLoginOtpAttempts();
+    auth.incrementLoginOtpAttempts();
 
     auth.clearLoginOtp();
 
