@@ -926,9 +926,21 @@ export class AesEncryptionService implements EncryptionServiceInterface {
   }
 
   decrypt(cipherText: string): string {
-    const [ivPart, tagPart, dataPart] = cipherText.split('.');
+    // Validate by SHAPE, not truthiness: an empty payload is a legitimate
+    // encryption of '', and a falsiness check would reject it. Checking the
+    // component count also rejects trailing/extra components.
+    const parts = cipherText.split('.');
+    if (parts.length !== 3) {
+      throw new Error('Malformed ciphertext');
+    }
+    const [ivPart, tagPart, dataPart] = parts;
 
-    if (!ivPart || !tagPart || !dataPart) {
+    // authTagLength is REQUIRED. Without it, Node 20 (our container base,
+    // node:20.18-bookworm-slim) accepts truncated auth tags — a 4-byte tag
+    // drops GCM forgery resistance from 2^128 to 2^32. Node 22+ rejects them,
+    // so this is invisible in local dev and live only in production.
+    const tag = Buffer.from(tagPart, 'base64');
+    if (tag.length !== 16) {
       throw new Error('Malformed ciphertext');
     }
 
@@ -936,8 +948,9 @@ export class AesEncryptionService implements EncryptionServiceInterface {
       AesEncryptionService.ALGORITHM,
       this.key,
       Buffer.from(ivPart, 'base64'),
+      { authTagLength: 16 },
     );
-    decipher.setAuthTag(Buffer.from(tagPart, 'base64'));
+    decipher.setAuthTag(tag);
 
     return Buffer.concat([
       decipher.update(Buffer.from(dataPart, 'base64')),
