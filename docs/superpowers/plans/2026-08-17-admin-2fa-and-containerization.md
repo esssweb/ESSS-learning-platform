@@ -268,9 +268,6 @@ COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=build /app/dist ./dist
-COPY .sequelizerc ./
-COPY src/infrastructure/database/migrations ./src/infrastructure/database/migrations
-COPY src/infrastructure/database/seeders ./src/infrastructure/database/seeders
 
 USER node
 EXPOSE 3000
