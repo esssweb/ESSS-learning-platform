@@ -10,6 +10,14 @@ export interface AuthProps {
   lastOtpSentAt?: Date;
   verificationToken?: string;
   isActive: boolean;
+  totpSecret?: string;
+  totpEnabledAt?: Date;
+  totpLastUsedStep?: number;
+  loginOtpCode?: string;
+  loginOtpExpiresAt?: Date;
+  loginOtpAttemptCount: number;
+  loginOtpRequestCount: number;
+  loginOtpLastSentAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -63,6 +71,38 @@ export class Auth {
 
   get isActive(): boolean {
     return this.props.isActive;
+  }
+
+  get totpSecret(): string | undefined {
+    return this.props.totpSecret;
+  }
+
+  get totpEnabledAt(): Date | undefined {
+    return this.props.totpEnabledAt;
+  }
+
+  get totpLastUsedStep(): number | undefined {
+    return this.props.totpLastUsedStep;
+  }
+
+  get loginOtpCode(): string | undefined {
+    return this.props.loginOtpCode;
+  }
+
+  get loginOtpExpiresAt(): Date | undefined {
+    return this.props.loginOtpExpiresAt;
+  }
+
+  get loginOtpAttemptCount(): number {
+    return this.props.loginOtpAttemptCount;
+  }
+
+  get loginOtpRequestCount(): number {
+    return this.props.loginOtpRequestCount;
+  }
+
+  get loginOtpLastSentAt(): Date | undefined {
+    return this.props.loginOtpLastSentAt;
   }
 
   get createdAt(): Date | undefined {
