@@ -1,4 +1,12 @@
 import { ConfigService } from '@nestjs/config';
+// `import * as crypto from 'crypto'` compiles (under this project's
+// commonjs + esModuleInterop tsconfig) to TypeScript's __importStar helper,
+// which copies properties onto a NEW object via non-configurable getters —
+// jest.spyOn cannot redefine those, and even if it could, it would not be
+// the same module object the implementation calls into. `import = require`
+// compiles to a plain `require('crypto')`, returning Node's cached,
+// configurable module object — the exact one `encryption.service.ts` uses.
+import crypto = require('crypto');
 import { randomBytes } from 'crypto';
 import { AesEncryptionService } from './encryption.service';
 
@@ -70,5 +78,18 @@ describe('AesEncryptionService', () => {
 
     const uniqueIvs = new Set(ivs.map((iv) => iv.toString('base64')));
     expect(uniqueIvs.size).toBe(ivs.length);
+  });
+
+  it('draws a fresh 12-byte IV from the CSPRNG for every encryption', () => {
+    const service = new AesEncryptionService(configWithKey(key));
+    const spy = jest.spyOn(crypto, 'randomBytes');
+    try {
+      service.encrypt('a');
+      service.encrypt('a');
+      expect(spy).toHaveBeenCalledTimes(2);
+      expect(spy).toHaveBeenCalledWith(12);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
