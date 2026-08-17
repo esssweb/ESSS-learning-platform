@@ -27,6 +27,7 @@ services:
       DB_PASSWORD: localdev
       DB_DATABASE: esss_learning
       NODE_ENV: development
+      PORT: "3000"
     ports:
       - "3000:3000"
     depends_on:
