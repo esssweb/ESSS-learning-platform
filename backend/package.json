@@ -40,6 +40,7 @@
     "firebase-admin": "^12.0.0",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^8.0.4",
+    "otplib": "^12.0.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.11.3",
