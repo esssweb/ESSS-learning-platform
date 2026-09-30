@@ -33,6 +33,8 @@ export interface VerifyTwoFactorRequestDto {
   deviceType?: string;
 }
 
+type VerifyOutcome = { ok: true; email: string } | { ok: false; reason: 'challenge' | 'code' };
+
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 @Injectable()
@@ -52,6 +54,11 @@ export class VerifyTwoFactorUseCase {
   ) {}
 
   async execute(dto: VerifyTwoFactorRequestDto): Promise<LoginResponseDto> {
+    // A JSON number/object would otherwise reach bcrypt and surface as a 500.
+    if (typeof dto.code !== 'string') {
+      throw new InvalidTwoFactorCodeException();
+    }
+
     let payload: { authId: string; method: string };
     try {
       payload = this.tokenService.verifyTwoFactorChallengeToken(dto.challengeToken);
@@ -62,23 +69,36 @@ export class VerifyTwoFactorUseCase {
       throw new TwoFactorChallengeInvalidException();
     }
 
-    const auth = await this.authRepository.findById(payload.authId);
-    if (!auth || !auth.isActive) {
+    // Everything that reads or changes attempt state happens under the row lock,
+    // so concurrent guesses are serialized and each one is counted. `work`
+    // returns outcomes instead of throwing: a throw would roll back the
+    // failed-attempt increment.
+    const outcome = await this.authRepository.updateExclusively<VerifyOutcome>(
+      payload.authId,
+      async (auth) => {
+        if (!auth.isActive) {
+          return { ok: false, reason: 'challenge' };
+        }
+        // A challenge issued for one factor must never be redeemed against the other.
+        if (payload.method !== auth.activeTwoFactorMethod()) {
+          return { ok: false, reason: 'challenge' };
+        }
+        const codeOk =
+          auth.activeTwoFactorMethod() === TwoFactorMethod.TOTP
+            ? await this.checkTotp(auth, dto.code)
+            : await this.checkEmailOtp(auth, dto.code);
+        return codeOk ? { ok: true, email: auth.email } : { ok: false, reason: 'code' };
+      },
+    );
+
+    if (outcome === null || (!outcome.ok && outcome.reason === 'challenge')) {
       throw new TwoFactorChallengeInvalidException();
     }
-
-    // A challenge issued for one factor must never be redeemed against the other.
-    if (payload.method !== auth.activeTwoFactorMethod()) {
-      throw new TwoFactorChallengeInvalidException();
+    if (!outcome.ok) {
+      throw new InvalidTwoFactorCodeException();
     }
 
-    if (auth.activeTwoFactorMethod() === TwoFactorMethod.TOTP) {
-      await this.verifyTotp(auth, dto.code);
-    } else {
-      await this.verifyEmailOtp(auth, dto.code);
-    }
-
-    const user = await this.userRepository.findByAuthId(auth.id!);
+    const user = await this.userRepository.findByAuthId(payload.authId);
     if (!user) {
       throw new TwoFactorChallengeInvalidException();
     }
@@ -97,7 +117,7 @@ export class VerifyTwoFactorUseCase {
       deviceTokenId = savedDevice.id;
     }
 
-    const tokenPayload = { userId: user.id!, email: auth.email, role: user.role };
+    const tokenPayload = { userId: user.id!, email: outcome.email, role: user.role };
     const accessToken = this.tokenService.generateAccessToken(tokenPayload);
     const refreshTokenString = this.tokenService.generateRefreshToken(tokenPayload);
 
@@ -116,7 +136,7 @@ export class VerifyTwoFactorUseCase {
       refreshToken: refreshTokenString,
       user: {
         id: user.id!,
-        email: auth.email,
+        email: outcome.email,
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
@@ -124,11 +144,12 @@ export class VerifyTwoFactorUseCase {
     };
   }
 
-  private async verifyEmailOtp(auth: Auth, code: string): Promise<void> {
+  // Both checkers run under the row lock and mutate the locked aggregate; the
+  // repository persists it when `work` returns.
+  private async checkEmailOtp(auth: Auth, code: string): Promise<boolean> {
     if (!auth.canAttemptLoginOtp()) {
       auth.clearLoginOtp();
-      await this.authRepository.update(auth.id!, auth);
-      throw new InvalidTwoFactorCodeException();
+      return false;
     }
 
     const matches = await this.hashService.compare(code, auth.loginOtpCode!);
@@ -139,19 +160,18 @@ export class VerifyTwoFactorUseCase {
       if (!auth.canAttemptLoginOtp()) {
         auth.clearLoginOtp();
       }
-      await this.authRepository.update(auth.id!, auth);
-      throw new InvalidTwoFactorCodeException();
+      return false;
     }
 
     auth.clearLoginOtp();
-    await this.authRepository.update(auth.id!, auth);
+    return true;
   }
 
-  private async verifyTotp(auth: Auth, code: string): Promise<void> {
+  private async checkTotp(auth: Auth, code: string): Promise<boolean> {
     // Bounded guesses: with the password alone an attacker must not be able to
     // brute-force codes. The budget resets only when a new challenge is issued.
     if (!auth.canAttemptTotp()) {
-      throw new InvalidTwoFactorCodeException();
+      return false;
     }
 
     const secret = this.encryptionService.decrypt(auth.totpSecret!);
@@ -159,12 +179,11 @@ export class VerifyTwoFactorUseCase {
 
     if (step === null || auth.hasTotpStepBeenUsed(step)) {
       auth.incrementLoginOtpAttempts();
-      await this.authRepository.update(auth.id!, auth);
-      throw new InvalidTwoFactorCodeException();
+      return false;
     }
 
     auth.consumeTotpStep(step);
     auth.clearLoginOtp();
-    await this.authRepository.update(auth.id!, auth);
+    return true;
   }
 }

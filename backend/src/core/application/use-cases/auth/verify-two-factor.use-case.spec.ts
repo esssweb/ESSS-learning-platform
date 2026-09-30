@@ -20,6 +20,8 @@ interface BuildOptions {
   verifyThrows?: boolean;
   totpStep?: number | null;
   totpLastUsedStep?: number;
+  expiredOtp?: boolean;
+  priorAttempts?: number;
 }
 
 const build = (opts: BuildOptions = {}) => {
@@ -39,28 +41,39 @@ const build = (opts: BuildOptions = {}) => {
     otpAttemptCount: 0,
     otpRequestCount: 0,
     isActive,
-    loginOtpAttemptCount: 0,
+    loginOtpAttemptCount: opts.priorAttempts ?? 0,
     loginOtpRequestCount: 0,
     totpSecret: totp ? 'enc-secret' : undefined,
     totpEnabledAt: totp ? new Date() : undefined,
     totpLastUsedStep: opts.totpLastUsedStep,
   });
   if (!totp) {
-    auth.setLoginOtp('hashed-otp', new Date(Date.now() + 60_000));
+    auth.setLoginOtp(
+      'hashed-otp',
+      opts.expiredOtp ? new Date(Date.now() - 1000) : new Date(Date.now() + 60_000),
+    );
   }
 
-  // Snapshot primitive state at persist time; never hold the live aggregate.
+  // `updateExclusively` runs `work` on the in-memory aggregate and snapshots
+  // primitive state AFTER work returns: that snapshot is the committed state.
+  // Plain `update` throws so any path still using it fails loudly.
   const persisted: Snapshot[] = [];
   const authRepository = {
     findById: jest.fn().mockResolvedValue(auth),
-    update: jest.fn().mockImplementation(async () => {
-      persisted.push({
-        loginOtpAttemptCount: auth.loginOtpAttemptCount,
-        loginOtpCode: auth.loginOtpCode,
-        totpLastUsedStep: auth.totpLastUsedStep,
-      });
-      return auth;
+    update: jest.fn().mockImplementation(() => {
+      throw new Error('plain update must not be used for two-factor state');
     }),
+    updateExclusively: jest
+      .fn()
+      .mockImplementation(async (_id: string, work: (a: Auth) => Promise<unknown>) => {
+        const result = await work(auth);
+        persisted.push({
+          loginOtpAttemptCount: auth.loginOtpAttemptCount,
+          loginOtpCode: auth.loginOtpCode,
+          totpLastUsedStep: auth.totpLastUsedStep,
+        });
+        return result;
+      }),
   };
   const userRepository = {
     findByAuthId: jest.fn().mockResolvedValue(
@@ -89,12 +102,13 @@ const build = (opts: BuildOptions = {}) => {
   const totpService = { verify: jest.fn().mockReturnValue(totpStep) };
   const encryptionService = { decrypt: jest.fn().mockReturnValue('plain-secret') };
 
+  const hashService = { compare: jest.fn().mockResolvedValue(compareResult) };
   const useCase = new VerifyTwoFactorUseCase(
     authRepository as never,
     userRepository as never,
     refreshTokenRepository as never,
     deviceTokenRepository as never,
-    { compare: jest.fn().mockResolvedValue(compareResult) } as never,
+    hashService as never,
     tokenService as never,
     totpService as never,
     encryptionService as never,
@@ -110,6 +124,7 @@ const build = (opts: BuildOptions = {}) => {
     deviceTokenRepository,
     tokenService,
     totpService,
+    hashService,
   };
 };
 
@@ -218,23 +233,25 @@ describe('VerifyTwoFactorUseCase', () => {
 
   describe('challenge validation', () => {
     it('rejects an EMAIL challenge when the account now has TOTP enabled', async () => {
-      const { useCase, authRepository, tokenService } = build({
+      const { useCase, auth, persisted, tokenService } = build({
         totp: true,
         challengeMethod: 'EMAIL',
       });
 
       await expect(run(useCase)).rejects.toBeInstanceOf(TwoFactorChallengeInvalidException);
-      expect(authRepository.update).not.toHaveBeenCalled();
+      expect(auth.loginOtpAttemptCount).toBe(0);
+      expect(persisted[0]).toMatchObject({ loginOtpAttemptCount: 0 });
       expect(tokenService.generateAccessToken).not.toHaveBeenCalled();
     });
 
     it('rejects a TOTP challenge when the account is on EMAIL', async () => {
-      const { useCase, authRepository, tokenService } = build({
+      const { useCase, auth, persisted, tokenService } = build({
         challengeMethod: 'TOTP',
       });
 
       await expect(run(useCase)).rejects.toBeInstanceOf(TwoFactorChallengeInvalidException);
-      expect(authRepository.update).not.toHaveBeenCalled();
+      expect(auth.loginOtpAttemptCount).toBe(0);
+      expect(persisted[0]).toMatchObject({ loginOtpAttemptCount: 0 });
       expect(tokenService.generateAccessToken).not.toHaveBeenCalled();
     });
 
@@ -244,14 +261,14 @@ describe('VerifyTwoFactorUseCase', () => {
       });
 
       await expect(run(useCase)).rejects.toBeInstanceOf(TwoFactorChallengeInvalidException);
-      expect(authRepository.findById).not.toHaveBeenCalled();
+      expect(authRepository.updateExclusively).not.toHaveBeenCalled();
     });
 
     it('rejects when token verification throws', async () => {
       const { useCase, authRepository } = build({ verifyThrows: true });
 
       await expect(run(useCase)).rejects.toBeInstanceOf(TwoFactorChallengeInvalidException);
-      expect(authRepository.findById).not.toHaveBeenCalled();
+      expect(authRepository.updateExclusively).not.toHaveBeenCalled();
     });
 
     it('rejects an inactive account', async () => {
@@ -260,6 +277,46 @@ describe('VerifyTwoFactorUseCase', () => {
       await expect(run(useCase)).rejects.toBeInstanceOf(TwoFactorChallengeInvalidException);
       expect(tokenService.generateAccessToken).not.toHaveBeenCalled();
     });
+  });
+
+  it('rejects an expired EMAIL OTP without comparing and without issuing tokens', async () => {
+    const { useCase, hashService, tokenService } = build({ expiredOtp: true });
+
+    await expect(run(useCase)).rejects.toBeInstanceOf(InvalidTwoFactorCodeException);
+
+    expect(hashService.compare).not.toHaveBeenCalled();
+    expect(tokenService.generateAccessToken).not.toHaveBeenCalled();
+  });
+
+  it('resets a NONZERO attempt count on TOTP success and persists it', async () => {
+    const { useCase, persisted } = build({ totp: true, priorAttempts: 3 });
+
+    await run(useCase);
+
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0].loginOtpAttemptCount).toBe(0);
+  });
+
+  it('rejects a non-string code without touching the repository', async () => {
+    const { useCase, authRepository, tokenService } = build();
+
+    for (const code of [123456, null, undefined, {}]) {
+      await expect(
+        useCase.execute({ challengeToken: 't', code: code as never }),
+      ).rejects.toBeInstanceOf(InvalidTwoFactorCodeException);
+    }
+
+    expect(authRepository.updateExclusively).not.toHaveBeenCalled();
+    expect(authRepository.findById).not.toHaveBeenCalled();
+    expect(tokenService.verifyTwoFactorChallengeToken).not.toHaveBeenCalled();
+  });
+
+  it('never uses the plain update for two-factor state', async () => {
+    const { useCase, authRepository } = build({ compareResult: false });
+
+    await expect(run(useCase)).rejects.toBeInstanceOf(InvalidTwoFactorCodeException);
+
+    expect(authRepository.update).not.toHaveBeenCalled();
   });
 
   it('creates a device row and links it on the refresh token', async () => {

@@ -3,7 +3,9 @@ import { Auth } from '../../../domain/models/auth/auth.model';
 import { TwoFactorChallengeInvalidException } from '../../../domain/exceptions/two-factor-challenge-invalid.exception';
 import { OtpRateLimitException } from '../../../domain/exceptions/otp-rate-limit.exception';
 
-const build = (opts: { totp?: boolean; challengeMethod?: string } = {}) => {
+const build = (
+  opts: { totp?: boolean; challengeMethod?: string; inactive?: boolean; missing?: boolean } = {},
+) => {
   const { totp = false, challengeMethod = totp ? 'TOTP' : 'EMAIL' } = opts;
   const auth = new Auth({
     id: 'auth-1',
@@ -12,15 +14,25 @@ const build = (opts: { totp?: boolean; challengeMethod?: string } = {}) => {
     emailVerified: true,
     otpAttemptCount: 0,
     otpRequestCount: 0,
-    isActive: true,
+    isActive: !opts.inactive,
     loginOtpAttemptCount: 0,
     loginOtpRequestCount: 0,
     totpSecret: totp ? 'enc' : undefined,
     totpEnabledAt: totp ? new Date() : undefined,
   });
+  const log: string[] = [];
   const authRepository = {
-    findById: jest.fn().mockResolvedValue(auth),
-    update: jest.fn().mockResolvedValue(auth),
+    findById: jest.fn().mockResolvedValue(opts.missing ? null : auth),
+    update: jest.fn().mockImplementation(() => {
+      throw new Error('plain update must not be used for two-factor state');
+    }),
+    updateExclusively: jest
+      .fn()
+      .mockImplementation(async (_id: string, work: (a: Auth) => Promise<unknown>) => {
+        const result = await work(auth);
+        log.push('commit');
+        return result;
+      }),
   };
   const tokenService = {
     verifyTwoFactorChallengeToken: jest
@@ -28,23 +40,30 @@ const build = (opts: { totp?: boolean; challengeMethod?: string } = {}) => {
       .mockReturnValue({ authId: 'auth-1', method: challengeMethod }),
     generateTwoFactorChallengeToken: jest.fn().mockReturnValue('fresh-token'),
   };
-  const emailService = { sendOtp: jest.fn().mockResolvedValue(undefined) };
+  const emailService = {
+    sendOtp: jest.fn().mockImplementation(async () => {
+      log.push('send');
+    }),
+  };
   const useCase = new ResendTwoFactorOtpUseCase(
     authRepository as never,
     { hash: jest.fn().mockResolvedValue('hashed') } as never,
     tokenService as never,
     emailService as never,
   );
-  return { useCase, authRepository, tokenService, emailService };
+  return { useCase, auth, log, authRepository, tokenService, emailService };
 };
 
 describe('ResendTwoFactorOtpUseCase', () => {
   it('sends a new email OTP and returns a fresh challenge token', async () => {
-    const { useCase, tokenService, emailService } = build();
+    const { useCase, tokenService, emailService, authRepository, log } = build();
 
     const result = await useCase.execute({ challengeToken: 'old-token' });
 
+    expect(log).toEqual(['commit', 'send']);
+
     expect(emailService.sendOtp).toHaveBeenCalledTimes(1);
+    expect(authRepository.update).not.toHaveBeenCalled();
     expect(tokenService.generateTwoFactorChallengeToken).toHaveBeenCalledWith({
       authId: 'auth-1',
       method: 'EMAIL',
@@ -93,5 +112,36 @@ describe('ResendTwoFactorOtpUseCase', () => {
     await expect(useCase.execute({ challengeToken: 't' })).rejects.toBeInstanceOf(
       OtpRateLimitException,
     );
+  });
+
+  it('rejects an inactive account and sends nothing', async () => {
+    const { useCase, emailService } = build({ inactive: true });
+
+    await expect(useCase.execute({ challengeToken: 't' })).rejects.toBeInstanceOf(
+      TwoFactorChallengeInvalidException,
+    );
+    expect(emailService.sendOtp).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unknown account', async () => {
+    const { useCase, emailService } = build({ missing: true });
+
+    await expect(useCase.execute({ challengeToken: 't' })).rejects.toBeInstanceOf(
+      TwoFactorChallengeInvalidException,
+    );
+    expect(emailService.sendOtp).not.toHaveBeenCalled();
+  });
+
+  it('rejects a token that fails verification', async () => {
+    const { useCase, authRepository, tokenService, emailService } = build();
+    tokenService.verifyTwoFactorChallengeToken.mockImplementation(() => {
+      throw new Error('expired');
+    });
+
+    await expect(useCase.execute({ challengeToken: 't' })).rejects.toBeInstanceOf(
+      TwoFactorChallengeInvalidException,
+    );
+    expect(authRepository.findById).not.toHaveBeenCalled();
+    expect(emailService.sendOtp).not.toHaveBeenCalled();
   });
 });

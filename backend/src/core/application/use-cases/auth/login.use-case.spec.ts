@@ -32,8 +32,10 @@ const withTotp = (auth: Auth) => {
 };
 
 const build = (role: UserRole, auth: Auth = makeAuth(), passwordOk = true) => {
-  // update and sendOtp share one call log, and update snapshots the aggregate
-  // at call time so persistence ordering and content are actually pinned.
+  // updateExclusively runs `work` on the in-memory aggregate and snapshots primitive
+  // state AFTER work returns (the committed state), logging 'commit' to the same
+  // list as sendOtp so commit-before-send ordering is pinned. Plain update throws
+  // so any path still using it fails loudly.
   const calls: string[] = [];
   const snapshots: {
     code?: string;
@@ -43,16 +45,22 @@ const build = (role: UserRole, auth: Auth = makeAuth(), passwordOk = true) => {
   }[] = [];
   const authRepository = {
     findByEmail: jest.fn().mockResolvedValue(auth),
-    update: jest.fn().mockImplementation(async (_id: string, a: Auth) => {
-      calls.push('update');
-      snapshots.push({
-        code: a.loginOtpCode,
-        expiresAt: a.loginOtpExpiresAt,
-        requestCount: a.loginOtpRequestCount,
-        attemptCount: a.loginOtpAttemptCount,
-      });
-      return a;
+    update: jest.fn().mockImplementation(() => {
+      throw new Error('plain update must not be used for two-factor state');
     }),
+    updateExclusively: jest
+      .fn()
+      .mockImplementation(async (_id: string, work: (a: Auth) => Promise<unknown>) => {
+        const result = await work(auth);
+        calls.push('commit');
+        snapshots.push({
+          code: auth.loginOtpCode,
+          expiresAt: auth.loginOtpExpiresAt,
+          requestCount: auth.loginOtpRequestCount,
+          attemptCount: auth.loginOtpAttemptCount,
+        });
+        return result;
+      }),
   };
   const userRepository = { findByAuthId: jest.fn().mockResolvedValue(makeUser(role)) };
   const refreshTokenRepository = { create: jest.fn().mockResolvedValue({}) };
@@ -151,7 +159,8 @@ describe('LoginUseCase two-factor branch', () => {
 
     expect(result).toMatchObject({ twoFactorRequired: true, method: 'TOTP' });
     expect(emailService.sendOtp).not.toHaveBeenCalled();
-    expect(authRepository.update).toHaveBeenCalledTimes(1);
+    expect(authRepository.updateExclusively).toHaveBeenCalledTimes(1);
+    expect(authRepository.update).not.toHaveBeenCalled();
     expect(auth.loginOtpAttemptCount).toBe(0);
   });
 
@@ -175,7 +184,7 @@ describe('LoginUseCase admin two-factor invariants', () => {
 
       await expect(h.useCase.execute(creds)).rejects.toBeInstanceOf(InvalidCredentialsException);
 
-      expect(h.authRepository.update).not.toHaveBeenCalled();
+      expect(h.authRepository.updateExclusively).not.toHaveBeenCalled();
       expect(h.emailService.sendOtp).not.toHaveBeenCalled();
       expect(h.tokenService.generateTwoFactorChallengeToken).not.toHaveBeenCalled();
     });
@@ -191,8 +200,10 @@ describe('LoginUseCase admin two-factor invariants', () => {
       for (const auth of [limited(), withTotp(limited())]) {
         const h = build(role, auth);
         await expect(h.useCase.execute(creds)).rejects.toBeInstanceOf(OtpRateLimitException);
-        expect(h.authRepository.update).not.toHaveBeenCalled();
+        // The locked section returns without mutating: committed counters unchanged.
+        expect(h.snapshots.at(-1)).toMatchObject({ requestCount: 3, code: undefined });
         expect(h.emailService.sendOtp).not.toHaveBeenCalled();
+        expect(h.tokenService.generateTwoFactorChallengeToken).not.toHaveBeenCalled();
       }
     });
 
@@ -202,7 +213,7 @@ describe('LoginUseCase admin two-factor invariants', () => {
       await expect(h.useCase.execute(creds)).rejects.toBeInstanceOf(UnauthorizedAccessException);
 
       expect(h.emailService.sendOtp).not.toHaveBeenCalled();
-      expect(h.authRepository.update).not.toHaveBeenCalled();
+      expect(h.authRepository.updateExclusively).not.toHaveBeenCalled();
     });
 
     it(`${role} login never creates device/refresh rows or tokens, even with device info`, async () => {
@@ -235,7 +246,7 @@ describe('LoginUseCase admin two-factor invariants', () => {
 
     const result = (await h.useCase.execute(creds)) as { expiresAt: Date };
 
-    expect(h.calls).toEqual(['update', 'send']);
+    expect(h.calls).toEqual(['commit', 'send']);
     expect(h.snapshots[0].code).toBe('hashed-otp');
     expect(h.snapshots[0].requestCount).toBe(1);
     expect(h.snapshots[0].attemptCount).toBe(0);
@@ -251,13 +262,13 @@ describe('LoginUseCase admin two-factor invariants', () => {
     const result = await h.useCase.execute(creds);
 
     expect(result).toMatchObject({ method: 'TOTP' });
-    expect(h.calls).toEqual(['update']);
+    expect(h.calls).toEqual(['commit']);
     expect(h.snapshots[0]).toMatchObject({ requestCount: 1, attemptCount: 0, code: undefined });
 
     await h.useCase.execute(creds);
     await h.useCase.execute(creds);
     await expect(h.useCase.execute(creds)).rejects.toBeInstanceOf(OtpRateLimitException);
-    expect(h.snapshots.map((s) => s.requestCount)).toEqual([1, 2, 3]);
+    expect(h.snapshots.map((s) => s.requestCount)).toEqual([1, 2, 3, 3]); // the rate-limited 4th commits unchanged state
   });
 
   it('students and instructors keep device and refresh rows with no 2FA side effects', async () => {
@@ -269,7 +280,7 @@ describe('LoginUseCase admin two-factor invariants', () => {
       expect(result).toMatchObject({ accessToken: 'access', refreshToken: 'refresh' });
       expect(h.deviceTokenRepository.create).toHaveBeenCalledTimes(1);
       expect(h.refreshTokenRepository.create.mock.calls[0][0].deviceTokenId).toBe('dt-1');
-      expect(h.authRepository.update).not.toHaveBeenCalled();
+      expect(h.authRepository.updateExclusively).not.toHaveBeenCalled();
       expect(h.emailService.sendOtp).not.toHaveBeenCalled();
       expect(h.tokenService.generateTwoFactorChallengeToken).not.toHaveBeenCalled();
     }

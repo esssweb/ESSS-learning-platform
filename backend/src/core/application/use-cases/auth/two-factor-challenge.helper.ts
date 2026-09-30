@@ -1,6 +1,7 @@
 import { randomInt } from 'crypto';
 import { Auth } from '../../../domain/models/auth/auth.model';
 import { TwoFactorMethod } from '../../../domain/enums/two-factor-method.enum';
+import { TwoFactorChallengeInvalidException } from '../../../domain/exceptions/two-factor-challenge-invalid.exception';
 import { OtpRateLimitException } from '../../../domain/exceptions/otp-rate-limit.exception';
 import { AuthRepositoryInterface } from '../../../domain/repositories/auth.repository.interface';
 import { EmailServiceInterface } from '../../ports/output/email.service.interface';
@@ -19,39 +20,62 @@ export interface TwoFactorChallengeDeps {
   emailService: EmailServiceInterface;
 }
 
+type ChallengeOutcome =
+  | { rateLimited: true }
+  | { rateLimited: false; method: TwoFactorMethod; email: string; otpCode?: string };
+
 /**
  * Issues a rate-limited two-factor challenge. For the EMAIL factor this also
  * generates, stores, and sends a fresh OTP; for TOTP it only records the
  * challenge (request count, fresh attempt budget). Never returns access or
  * refresh tokens.
+ *
+ * The rate-limit check and the state change run under a row lock so concurrent
+ * requests cannot all pass the check against the same stale counters. The
+ * email is sent only after that transaction has committed.
  */
 export async function issueTwoFactorChallenge(
   deps: TwoFactorChallengeDeps,
   auth: Auth,
 ): Promise<TwoFactorChallengeDto> {
-  const method = auth.activeTwoFactorMethod();
   const expiresAt = new Date(Date.now() + TWO_FACTOR_CHALLENGE_TTL_MS);
 
-  if (!auth.canRequestLoginOtp()) {
+  const outcome = await deps.authRepository.updateExclusively<ChallengeOutcome>(
+    auth.id!,
+    async (locked) => {
+      if (!locked.canRequestLoginOtp()) {
+        return { rateLimited: true };
+      }
+
+      const method = locked.activeTwoFactorMethod();
+      if (method === TwoFactorMethod.EMAIL) {
+        const otpCode = randomInt(100000, 1000000).toString();
+        locked.setLoginOtp(await deps.hashService.hash(otpCode), expiresAt);
+        return { rateLimited: false, method, email: locked.email, otpCode };
+      }
+
+      locked.recordTotpChallenge();
+      return { rateLimited: false, method, email: locked.email };
+    },
+  );
+
+  if (outcome === null) {
+    throw new TwoFactorChallengeInvalidException();
+  }
+  if (outcome.rateLimited) {
     throw new OtpRateLimitException();
   }
 
-  if (method === TwoFactorMethod.EMAIL) {
-    const otpCode = randomInt(100000, 1000000).toString();
-    auth.setLoginOtp(await deps.hashService.hash(otpCode), expiresAt);
-    await deps.authRepository.update(auth.id!, auth);
-    await deps.emailService.sendOtp(auth.email, otpCode);
-  } else {
-    auth.recordTotpChallenge();
-    await deps.authRepository.update(auth.id!, auth);
+  if (outcome.method === TwoFactorMethod.EMAIL) {
+    await deps.emailService.sendOtp(outcome.email, outcome.otpCode!);
   }
 
   return {
     twoFactorRequired: true,
-    method,
+    method: outcome.method,
     challengeToken: deps.tokenService.generateTwoFactorChallengeToken({
       authId: auth.id!,
-      method,
+      method: outcome.method,
     }),
     expiresAt,
   };
