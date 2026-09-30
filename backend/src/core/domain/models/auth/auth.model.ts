@@ -239,6 +239,20 @@ export class Auth {
   setLoginOtp(hashedOtp: string, expiresAt: Date): void {
     this.props.loginOtpCode = hashedOtp;
     this.props.loginOtpExpiresAt = expiresAt;
+    this.recordLoginChallengeIssued();
+  }
+
+  // TOTP challenges carry no stored code, but must still count toward the hourly
+  // request limit and start with a fresh attempt budget.
+  recordTotpChallenge(): void {
+    this.recordLoginChallengeIssued();
+  }
+
+  canAttemptTotp(): boolean {
+    return this.props.loginOtpAttemptCount < 5;
+  }
+
+  private recordLoginChallengeIssued(): void {
     this.props.loginOtpAttemptCount = 0;
 
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);

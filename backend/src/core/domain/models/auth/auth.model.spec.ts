@@ -133,3 +133,43 @@ describe('Auth two-factor behaviour', () => {
     expect(auth.otpCode).toBe('registration-hash');
   });
 });
+
+describe('Auth TOTP challenge bookkeeping', () => {
+  it('recordTotpChallenge resets a nonzero attempt count', () => {
+    const auth = new Auth(baseProps());
+    auth.incrementLoginOtpAttempts();
+    auth.incrementLoginOtpAttempts();
+    expect(auth.loginOtpAttemptCount).toBe(2);
+
+    auth.recordTotpChallenge();
+
+    expect(auth.loginOtpAttemptCount).toBe(0);
+  });
+
+  it('counts toward the hourly request limit', () => {
+    const auth = new Auth(baseProps());
+
+    auth.recordTotpChallenge();
+    auth.recordTotpChallenge();
+    auth.recordTotpChallenge();
+
+    expect(auth.canRequestLoginOtp()).toBe(false);
+  });
+
+  it('stores no login OTP code', () => {
+    const auth = new Auth(baseProps());
+
+    auth.recordTotpChallenge();
+
+    expect(auth.loginOtpCode).toBeUndefined();
+  });
+
+  it('canAttemptTotp is true below 5 attempts and false at 5', () => {
+    const auth = new Auth(baseProps());
+    for (let i = 0; i < 4; i++) auth.incrementLoginOtpAttempts();
+    expect(auth.canAttemptTotp()).toBe(true);
+
+    auth.incrementLoginOtpAttempts();
+    expect(auth.canAttemptTotp()).toBe(false);
+  });
+});

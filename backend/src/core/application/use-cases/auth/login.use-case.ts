@@ -6,15 +6,19 @@ import { DeviceTokenRepositoryInterface } from '../../../domain/repositories/dev
 import { HashServiceInterface } from '../../ports/output/hash.service.interface';
 import { TokenServiceInterface } from '../../ports/output/token.service.interface';
 import { LoginRequestDto } from '../../dto/auth/login-request.dto';
-import { LoginResponseDto } from '../../dto/auth/login-response.dto';
+import { LoginResult } from '../../dto/auth/login-response.dto';
 import { Email } from '../../../domain/value-objects/email.vo';
 import { InvalidCredentialsException } from '../../../domain/exceptions/invalid-credentials.exception';
 import { UnauthorizedAccessException } from '../../../domain/exceptions/unauthorized-access.exception';
+import { UserRole } from '../../../domain/enums/user-role.enum';
+import { EmailServiceInterface } from '../../ports/output/email.service.interface';
+import { issueTwoFactorChallenge } from './two-factor-challenge.helper';
 import { RefreshToken } from '../../../domain/models/auth/refresh-token.model';
 import { DeviceToken } from '../../../domain/models/auth/device-token.model';
 import {
   AUTH_REPOSITORY,
   DEVICE_TOKEN_REPOSITORY,
+  EMAIL_SERVICE,
   HASH_SERVICE,
   REFRESH_TOKEN_REPOSITORY,
   TOKEN_SERVICE,
@@ -36,9 +40,11 @@ export class LoginUseCase {
     private readonly hashService: HashServiceInterface,
     @Inject(TOKEN_SERVICE)
     private readonly tokenService: TokenServiceInterface,
+    @Inject(EMAIL_SERVICE)
+    private readonly emailService: EmailServiceInterface,
   ) {}
 
-  async execute(dto: LoginRequestDto): Promise<LoginResponseDto> {
+  async execute(dto: LoginRequestDto): Promise<LoginResult> {
     const email = new Email(dto.email);
     const auth = await this.authRepository.findByEmail(email.getValue());
 
@@ -60,6 +66,22 @@ export class LoginUseCase {
 
     if (!user) {
       throw new InvalidCredentialsException();
+    }
+
+    const requiresTwoFactor = user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN;
+
+    if (requiresTwoFactor) {
+      // Admins receive a challenge, never tokens. Device registration is
+      // deferred to POST /auth/2fa/verify, where tokens are actually issued.
+      return issueTwoFactorChallenge(
+        {
+          authRepository: this.authRepository,
+          hashService: this.hashService,
+          tokenService: this.tokenService,
+          emailService: this.emailService,
+        },
+        auth,
+      );
     }
 
     let deviceTokenId: string | undefined;
