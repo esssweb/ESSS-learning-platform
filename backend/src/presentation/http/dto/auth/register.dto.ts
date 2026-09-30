@@ -1,8 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsEnum, IsOptional, IsString, Matches, MinLength } from 'class-validator';
 import { Gender } from '../../../../core/domain/enums/gender.enum';
-import { UserRole } from '../../../../core/domain/enums/user-role.enum';
 
+// No `role` field: public registration always creates a STUDENT. Elevated roles
+// are granted only through the admin-restricted /users endpoints. With the
+// global forbidNonWhitelisted pipe, a request that sends `role` is rejected.
 export class RegisterDto {
   @ApiProperty({ description: 'Verification token from the verify-otp step' })
   @IsString()
@@ -38,10 +40,6 @@ export class RegisterDto {
   @IsOptional()
   @IsEnum(Gender)
   gender?: Gender;
-
-  @ApiProperty({ enum: UserRole })
-  @IsEnum(UserRole)
-  role: UserRole;
 
   @ApiPropertyOptional({ description: 'Firebase device token for push notifications' })
   @IsOptional()

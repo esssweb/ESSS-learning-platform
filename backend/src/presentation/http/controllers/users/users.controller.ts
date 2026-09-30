@@ -77,7 +77,11 @@ export class UsersController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete user (hard delete)' })
+  @ApiOperation({
+    summary: 'Delete user account (hard delete)',
+    description:
+      'Permanently removes the account: credentials, profile, device tokens, and refresh tokens. The email can register again afterwards.',
+  })
   @ApiParam({ name: 'id', description: 'User ID (UUID)' })
   @ApiResponse({ status: 204 })
   async delete(@Param('id') id: string): Promise<void> {

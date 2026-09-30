@@ -1,4 +1,3 @@
-import { UserRole } from '../../../domain/enums/user-role.enum';
 import { Gender } from '../../../domain/enums/gender.enum';
 
 export class RegisterRequestDto {
@@ -9,7 +8,6 @@ export class RegisterRequestDto {
   verificationToken: string;
   phoneNumber?: string;
   gender?: Gender;
-  role: UserRole;
   deviceToken?: string;
   deviceName?: string;
   deviceType?: string;

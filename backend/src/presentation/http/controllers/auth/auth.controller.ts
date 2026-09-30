@@ -64,7 +64,6 @@ export class AuthController {
       lastName: body.lastName,
       phoneNumber: body.phoneNumber,
       gender: body.gender,
-      role: body.role,
       deviceToken: body.deviceToken,
       deviceName: body.deviceName,
       deviceType: body.deviceType,
