@@ -4,6 +4,7 @@ import * as jwt from 'jsonwebtoken';
 import {
   TokenPayload,
   TokenServiceInterface,
+  TwoFactorChallengePayload,
 } from '../../../core/application/ports/output/token.service.interface';
 
 @Injectable()
@@ -67,5 +68,27 @@ export class JwtTokenService implements TokenServiceInterface {
       throw new Error('Invalid verification token');
     }
     return { email: decoded.email };
+  }
+
+  generateTwoFactorChallengeToken(payload: TwoFactorChallengePayload): string {
+    return jwt.sign(
+      {
+        authId: payload.authId,
+        method: payload.method,
+        purpose: '2fa-challenge',
+      },
+      this.accessTokenSecret,
+      { expiresIn: '5m' },
+    );
+  }
+
+  verifyTwoFactorChallengeToken(token: string): TwoFactorChallengePayload {
+    const decoded = jwt.verify(token, this.accessTokenSecret) as jwt.JwtPayload;
+
+    if (decoded.purpose !== '2fa-challenge') {
+      throw new Error('Invalid two-factor challenge token');
+    }
+
+    return { authId: decoded.authId, method: decoded.method };
   }
 }
