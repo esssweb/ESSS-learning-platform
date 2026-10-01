@@ -46,6 +46,8 @@ describe('RegisterUseCase', () => {
         otpAttemptCount: 0,
         otpRequestCount: 0,
         isActive: true,
+        loginOtpAttemptCount: 0,
+        loginOtpRequestCount: 0,
       }),
     );
     hashService.hash.mockResolvedValue('hashed-password');
