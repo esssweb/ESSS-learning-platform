@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: localdev
       POSTGRES_DB: esss_learning
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -26,6 +26,7 @@ services:
       DB_USERNAME: postgres
       DB_PASSWORD: localdev
       DB_DATABASE: esss_learning
+      DB_SSL: "false"
       NODE_ENV: development
       PORT: "3000"
     ports:

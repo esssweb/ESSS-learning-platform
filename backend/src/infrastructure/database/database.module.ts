@@ -17,6 +17,11 @@ import { databaseProviders } from './database.providers';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_DATABASE'),
+        // Azure Database for PostgreSQL requires TLS; the local compose Postgres does not.
+        dialectOptions:
+          configService.get('DB_SSL') === 'true'
+            ? { ssl: { require: true, rejectUnauthorized: true } }
+            : undefined,
         autoLoadModels: true,
         synchronize: false,
         logging: configService.get('NODE_ENV') === 'development' ? console.log : false,

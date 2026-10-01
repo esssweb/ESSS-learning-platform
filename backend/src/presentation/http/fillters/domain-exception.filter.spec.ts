@@ -1,6 +1,7 @@
 import { ArgumentsHost, HttpStatus } from '@nestjs/common';
 import { DomainExceptionFilter } from './domain-exception.filter';
 import { InvalidTwoFactorCodeException } from '../../../core/domain/exceptions/invalid-two-factor-code.exception';
+import { SelfTwoFactorResetException } from '../../../core/domain/exceptions/self-two-factor-reset.exception';
 import { TwoFactorAlreadyEnabledException } from '../../../core/domain/exceptions/two-factor-already-enabled.exception';
 import { TwoFactorChallengeInvalidException } from '../../../core/domain/exceptions/two-factor-challenge-invalid.exception';
 import { TwoFactorNotEnrolledException } from '../../../core/domain/exceptions/two-factor-not-enrolled.exception';
@@ -91,6 +92,17 @@ describe('DomainExceptionFilter', () => {
         error: expect.objectContaining({
           code: 'TwoFactorAlreadyEnabledException',
         }),
+      }),
+    );
+  });
+
+  it('maps SelfTwoFactorResetException to 403 FORBIDDEN', () => {
+    filter.catch(new SelfTwoFactorResetException(), mockArgumentsHost);
+
+    expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.FORBIDDEN);
+    expect(mockResponse.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ code: 'SelfTwoFactorResetException' }),
       }),
     );
   });

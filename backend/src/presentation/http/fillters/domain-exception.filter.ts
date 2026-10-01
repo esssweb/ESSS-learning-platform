@@ -6,6 +6,7 @@ import { InvalidCredentialsException } from '../../../core/domain/exceptions/inv
 import { InvalidTwoFactorCodeException } from '../../../core/domain/exceptions/invalid-two-factor-code.exception';
 import { OtpRateLimitException } from '../../../core/domain/exceptions/otp-rate-limit.exception';
 import { PhoneNumberAlreadyInUseException } from '../../../core/domain/exceptions/phone-number-already-in-use.exception';
+import { SelfTwoFactorResetException } from '../../../core/domain/exceptions/self-two-factor-reset.exception';
 import { TwoFactorAlreadyEnabledException } from '../../../core/domain/exceptions/two-factor-already-enabled.exception';
 import { TwoFactorChallengeInvalidException } from '../../../core/domain/exceptions/two-factor-challenge-invalid.exception';
 import { TwoFactorNotEnrolledException } from '../../../core/domain/exceptions/two-factor-not-enrolled.exception';
@@ -38,6 +39,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
     [TwoFactorChallengeInvalidException, HttpStatus.UNAUTHORIZED],
     [TwoFactorNotEnrolledException, HttpStatus.BAD_REQUEST],
     [TwoFactorAlreadyEnabledException, HttpStatus.CONFLICT],
+    [SelfTwoFactorResetException, HttpStatus.FORBIDDEN],
   ]);
 
   catch(exception: DomainException, host: ArgumentsHost): void {

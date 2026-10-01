@@ -3,6 +3,7 @@ import { Auth } from '../../../domain/models/auth/auth.model';
 import { User } from '../../../domain/models/user/user.model';
 import { UserRole } from '../../../domain/enums/user-role.enum';
 import { TwoFactorMethod } from '../../../domain/enums/two-factor-method.enum';
+import { SelfTwoFactorResetException } from '../../../domain/exceptions/self-two-factor-reset.exception';
 import { UserNotFoundException } from '../../../domain/exceptions/user-not-found.exception';
 
 describe('ResetTwoFactorUseCase', () => {
@@ -79,7 +80,7 @@ describe('ResetTwoFactorUseCase', () => {
   it('clears TOTP and login OTP state so the target falls back to email codes', async () => {
     const { useCase, authRepository, state } = build(enrolledAuth());
 
-    await useCase.execute('user-1');
+    await useCase.execute('user-1', 'actor-9');
 
     expect(authRepository.updateExclusively).toHaveBeenCalledWith('auth-1', expect.any(Function));
     expect(state.committed).toEqual({
@@ -98,7 +99,7 @@ describe('ResetTwoFactorUseCase', () => {
     expect(auth.isTotpEnrollmentPending()).toBe(true);
     const { useCase, state } = build(auth);
 
-    await useCase.execute('user-1');
+    await useCase.execute('user-1', 'actor-9');
 
     expect(state.committed?.totpSecret).toBeUndefined();
     expect(state.committed?.method).toBe(TwoFactorMethod.EMAIL);
@@ -108,21 +109,31 @@ describe('ResetTwoFactorUseCase', () => {
   it('throws when the user does not exist and never touches auth', async () => {
     const { useCase, authRepository } = build(enrolledAuth(), null);
 
-    await expect(useCase.execute('nope')).rejects.toBeInstanceOf(UserNotFoundException);
+    await expect(useCase.execute('nope', 'actor-9')).rejects.toBeInstanceOf(UserNotFoundException);
     expect(authRepository.updateExclusively).not.toHaveBeenCalled();
   });
 
   it('throws when the auth row is missing', async () => {
     const { useCase } = build(null);
 
-    await expect(useCase.execute('user-1')).rejects.toBeInstanceOf(UserNotFoundException);
+    await expect(useCase.execute('user-1', 'actor-9')).rejects.toBeInstanceOf(UserNotFoundException);
   });
 
   it('returns the confirmation message', async () => {
     const { useCase } = build(enrolledAuth());
 
-    await expect(useCase.execute('user-1')).resolves.toEqual({
+    await expect(useCase.execute('user-1', 'actor-9')).resolves.toEqual({
       message: 'Two-factor authentication reset. Email codes will be used.',
     });
+  });
+
+  it('refuses a self-reset and touches nothing', async () => {
+    const { useCase, authRepository, userRepository } = build(enrolledAuth());
+
+    await expect(useCase.execute('user-1', 'user-1')).rejects.toBeInstanceOf(
+      SelfTwoFactorResetException,
+    );
+    expect(authRepository.updateExclusively).not.toHaveBeenCalled();
+    expect(userRepository.findById).not.toHaveBeenCalled();
   });
 });

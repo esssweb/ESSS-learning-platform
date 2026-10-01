@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../../../core/domain/enums/user-role.enum';
+import { CurrentUser } from '../../../../infrastructure/security/decorators/current-user.deorator';
 import { Roles } from '../../../../infrastructure/security/decorators/roles.decorator';
 import { AssignRoleUseCase } from '../../../../core/application/use-cases/users/assign-role.use-case';
 import { CreateUserUseCase } from '../../../../core/application/use-cases/users/create-user.use-case';
@@ -107,7 +108,7 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset a user two-factor enrollment (SUPER_ADMIN only)' })
   @ApiParam({ name: 'id', description: 'User ID (UUID)' })
-  async resetTwoFactor(@Param('id') id: string) {
-    return this.resetTwoFactorUseCase.execute(id);
+  async resetTwoFactor(@Param('id') id: string, @CurrentUser() actor: { userId: string }) {
+    return this.resetTwoFactorUseCase.execute(id, actor.userId);
   }
 }

@@ -386,6 +386,15 @@ describe('Admin two-factor authentication (e2e)', () => {
         .set('Authorization', `Bearer ${mint('user-2', UserRole.SUPER_ADMIN)}`);
       expect(allowed.status).toBe(200);
     });
+
+    it('forbids a SUPER_ADMIN resetting their own two-factor', async () => {
+      const res = await request(http)
+        .post('/users/user-2/2fa/reset')
+        .set('Authorization', `Bearer ${mint('user-2', UserRole.SUPER_ADMIN)}`);
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('SelfTwoFactorResetException');
+    });
   });
 
   it('still requires authentication on user routes', async () => {

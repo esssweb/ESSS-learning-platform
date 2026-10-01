@@ -20,18 +20,25 @@ const COLUMNS = {
 };
 
 module.exports = {
+  // One transaction so a mid-way failure cannot leave the auth table half-migrated.
   async up(queryInterface, Sequelize) {
-    for (const [name, spec] of Object.entries(COLUMNS)) {
-      await queryInterface.addColumn('auth', name, {
-        ...spec,
-        type: Sequelize[spec.type],
-      });
-    }
+    await queryInterface.sequelize.transaction(async (transaction) => {
+      for (const [name, spec] of Object.entries(COLUMNS)) {
+        await queryInterface.addColumn(
+          'auth',
+          name,
+          { ...spec, type: Sequelize[spec.type] },
+          { transaction },
+        );
+      }
+    });
   },
 
   async down(queryInterface) {
-    for (const name of Object.keys(COLUMNS).reverse()) {
-      await queryInterface.removeColumn('auth', name);
-    }
+    await queryInterface.sequelize.transaction(async (transaction) => {
+      for (const name of Object.keys(COLUMNS).reverse()) {
+        await queryInterface.removeColumn('auth', name, { transaction });
+      }
+    });
   },
 };

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { SelfTwoFactorResetException } from '../../../domain/exceptions/self-two-factor-reset.exception';
 import { UserNotFoundException } from '../../../domain/exceptions/user-not-found.exception';
 import { AuthRepositoryInterface } from '../../../domain/repositories/auth.repository.interface';
 import { UserRepositoryInterface } from '../../../domain/repositories/user.repository.interface';
@@ -17,7 +18,12 @@ export class ResetTwoFactorUseCase {
     @Inject(AUTH_REPOSITORY) private readonly authRepository: AuthRepositoryInterface,
   ) {}
 
-  async execute(userId: string): Promise<{ message: string }> {
+  async execute(userId: string, actorUserId: string): Promise<{ message: string }> {
+    // A self-reset would sidestep the current-code requirement for disabling TOTP.
+    if (userId === actorUserId) {
+      throw new SelfTwoFactorResetException();
+    }
+
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new UserNotFoundException(userId);
