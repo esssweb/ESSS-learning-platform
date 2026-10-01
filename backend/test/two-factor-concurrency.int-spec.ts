@@ -10,6 +10,7 @@ import { Sequelize as SequelizeTs } from 'sequelize-typescript';
 import { Sequelize } from 'sequelize';
 import { authenticator } from 'otplib';
 import { randomBytes } from 'crypto';
+import * as jwt from 'jsonwebtoken';
 import { AuthEntity } from '../src/infrastructure/database/entities/auth.entity';
 import { UserEntity } from '../src/infrastructure/database/entities/user.entity';
 import { RefreshTokenEntity } from '../src/infrastructure/database/entities/refresh-token.entity';
@@ -23,6 +24,9 @@ import { JwtTokenService } from '../src/infrastructure/security/services/jwt-tok
 import { OtplibTotpService } from '../src/infrastructure/security/services/totp.service';
 import { AesEncryptionService } from '../src/infrastructure/security/services/encryption.service';
 import { VerifyTwoFactorUseCase } from '../src/core/application/use-cases/auth/verify-two-factor.use-case';
+import { AssignRoleUseCase } from '../src/core/application/use-cases/users/assign-role.use-case';
+import { RefreshTokenUseCase } from '../src/core/application/use-cases/auth/refresh-token.use-case';
+import { RefreshToken } from '../src/core/domain/models/auth/refresh-token.model';
 import { DisableTotpUseCase } from '../src/core/application/use-cases/auth/disable-totp.use-case';
 import { issueTwoFactorChallenge } from '../src/core/application/use-cases/auth/two-factor-challenge.helper';
 import { EmailServiceInterface } from '../src/core/application/ports/output/email.service.interface';
@@ -340,5 +344,72 @@ describeIf('two-factor concurrency (real Postgres)', () => {
     expect((await dbRow(auth.id!)).attempts).toBe(5);
     const reloaded = await authRepository.findById(auth.id!);
     expect(reloaded!.activeTwoFactorMethod()).toBe('TOTP');
+  });
+
+  it('promotion racing in-flight refreshes: no surviving refresh token can mint an ADMIN access token', async () => {
+    const assign = new AssignRoleUseCase(userRepository, authRepository, refreshRepo);
+    const refresh = new RefreshTokenUseCase(
+      refreshRepo,
+      userRepository,
+      authRepository,
+      tokenService,
+    );
+    const ROUNDS = 40;
+
+    for (let i = 0; i < ROUNDS; i++) {
+      seq += 1;
+      const auth = await authRepository.create(
+        new Auth({
+          email: `student${seq}@esss.local`,
+          password: 'x',
+          emailVerified: true,
+          otpAttemptCount: 0,
+          otpRequestCount: 0,
+          isActive: true,
+          loginOtpAttemptCount: 0,
+          loginOtpRequestCount: 0,
+        }),
+      );
+      const user = await userRepository.create(
+        new User({ authId: auth.id!, firstName: 'S', lastName: 'T', role: UserRole.STUDENT }),
+      );
+      // Older iat so the token minted by the refresh differs from the seeded one.
+      const seed = jwt.sign(
+        {
+          userId: user.id,
+          email: auth.email,
+          role: UserRole.STUDENT,
+          iat: Math.floor(Date.now() / 1000) - 60,
+        },
+        'int-test-refresh-secret',
+        { expiresIn: '7d' },
+      );
+      await refreshRepo.create(
+        new RefreshToken({
+          userId: user.id!,
+          token: seed,
+          expiresAt: new Date(Date.now() + 86_400_000),
+          isRevoked: false,
+        }),
+      );
+
+      await Promise.allSettled([
+        refresh.execute({ refreshToken: seed }),
+        assign.execute(user.id!, { role: UserRole.ADMIN }),
+      ]);
+
+      const [live] = (await sequelize.query(
+        'SELECT token FROM refresh_tokens WHERE user_id = :u AND is_revoked = false',
+        { replacements: { u: user.id } },
+      )) as [Array<{ token: string }>, unknown];
+      for (const { token } of live) {
+        const out = await refresh.execute({ refreshToken: token }).then(
+          (v) => v,
+          () => null,
+        );
+        const role = out ? (jwt.decode(out.accessToken) as { role: string }).role : null;
+        expect(role).not.toBe(UserRole.ADMIN);
+      }
+    }
   });
 });
