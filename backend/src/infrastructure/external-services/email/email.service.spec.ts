@@ -32,7 +32,7 @@ describe('NodemailerEmailService.sendLoginOtp', () => {
   it('never reports less than 1 minute', async () => {
     const service = new NodemailerEmailService(config({ SMTP_HOST: 'smtp.test' }) as never);
     await service.sendLoginOtp('a@b.c', '654321', new Date(Date.now() + 1_000));
-    expect(sendMail.mock.calls[0][0].html).toContain('1 minutes');
+    expect(sendMail.mock.calls[0][0].html).toContain('<strong>1 minute</strong>');
   });
 
   it('logs the code instead of sending when SMTP is absent outside production', async () => {

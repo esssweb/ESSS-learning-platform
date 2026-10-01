@@ -76,7 +76,7 @@ export class NodemailerEmailService implements EmailServiceInterface {
           <div style="background: #f4f4f4; padding: 16px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 16px 0; border-radius: 8px;">
             ${otpCode}
           </div>
-          <p>This code expires in <strong>${minutes} minutes</strong>.</p>
+          <p>This code expires in <strong>${minutes} ${minutes === 1 ? 'minute' : 'minutes'}</strong>.</p>
           <p>If this wasn't you, change your password immediately and tell a SUPER_ADMIN.</p>
         </div>
       `,
