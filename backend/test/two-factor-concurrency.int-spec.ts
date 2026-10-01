@@ -25,9 +25,12 @@ import { AesEncryptionService } from '../src/infrastructure/security/services/en
 import { VerifyTwoFactorUseCase } from '../src/core/application/use-cases/auth/verify-two-factor.use-case';
 import { DisableTotpUseCase } from '../src/core/application/use-cases/auth/disable-totp.use-case';
 import { issueTwoFactorChallenge } from '../src/core/application/use-cases/auth/two-factor-challenge.helper';
+import { EmailServiceInterface } from '../src/core/application/ports/output/email.service.interface';
 import { Auth } from '../src/core/domain/models/auth/auth.model';
 import { User } from '../src/core/domain/models/user/user.model';
 import { UserRole } from '../src/core/domain/enums/user-role.enum';
+import { InvalidTwoFactorCodeException } from '../src/core/domain/exceptions/invalid-two-factor-code.exception';
+import { TwoFactorChallengeInvalidException } from '../src/core/domain/exceptions/two-factor-challenge-invalid.exception';
 import { OtpRateLimitException } from '../src/core/domain/exceptions/otp-rate-limit.exception';
 
 const enabled = !!process.env.TEST_DB_PORT;
@@ -51,11 +54,16 @@ describeIf('two-factor concurrency (real Postgres)', () => {
   let totpService: OtplibTotpService;
   let encryption: AesEncryptionService;
   let sentOtps: string[];
-  let emailService: { sendLoginOtp: (e: string, c: string) => Promise<void> };
+  let emailService: EmailServiceInterface;
   let verify: VerifyTwoFactorUseCase;
   let seq = 0;
 
   beforeAll(async () => {
+    // The next statements DROP SCHEMA public CASCADE; refuse anything not named like a scratch DB.
+    if (!(process.env.TEST_DB_NAME ?? '').endsWith('_test')) {
+      throw new Error('Refusing to wipe database: TEST_DB_NAME must end with "_test"');
+    }
+
     sequelize = new SequelizeTs({
       dialect: 'postgres',
       host: process.env.TEST_DB_HOST ?? '127.0.0.1',
@@ -106,6 +114,9 @@ describeIf('two-factor concurrency (real Postgres)', () => {
     totpService = new OtplibTotpService();
     encryption = new AesEncryptionService(config as never);
     emailService = {
+      sendOtp: async () => {
+        throw new Error('registration email must not be used for admin login codes');
+      },
       sendLoginOtp: async (_email, code) => {
         sentOtps.push(code);
       },
@@ -223,6 +234,17 @@ describeIf('two-factor concurrency (real Postgres)', () => {
     );
 
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    // Only the lock makes the losers fail on the OTP check: without it they would all
+    // compare, and fail later on the UNIQUE refresh_tokens.token constraint instead.
+    expect(compareCalls).toBe(1);
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    expect(rejected).toHaveLength(4);
+    for (const r of rejected) {
+      expect(
+        r.reason instanceof InvalidTwoFactorCodeException ||
+          r.reason instanceof TwoFactorChallengeInvalidException,
+      ).toBe(true);
+    }
     expect((await dbRow(auth.id!)).code).toBeNull();
   });
 
