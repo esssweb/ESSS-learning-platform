@@ -23,6 +23,7 @@ import { JwtTokenService } from '../src/infrastructure/security/services/jwt-tok
 import { OtplibTotpService } from '../src/infrastructure/security/services/totp.service';
 import { AesEncryptionService } from '../src/infrastructure/security/services/encryption.service';
 import { VerifyTwoFactorUseCase } from '../src/core/application/use-cases/auth/verify-two-factor.use-case';
+import { DisableTotpUseCase } from '../src/core/application/use-cases/auth/disable-totp.use-case';
 import { issueTwoFactorChallenge } from '../src/core/application/use-cases/auth/two-factor-challenge.helper';
 import { Auth } from '../src/core/domain/models/auth/auth.model';
 import { User } from '../src/core/domain/models/user/user.model';
@@ -280,5 +281,42 @@ describeIf('two-factor concurrency (real Postgres)', () => {
     for (const r of rejected) expect(r.reason).toBeInstanceOf(OtpRateLimitException);
     expect((await dbRow(auth.id!)).requests).toBe(3);
     expect(sentOtps).toHaveLength(1);
+  });
+
+  it('DisableTotp: 20 concurrent wrong codes -> at most 5 verifies, count 5, TOTP still enabled', async () => {
+    const secret = totpService.generateSecret();
+    const auth = await seedAdmin({ totpSecret: secret });
+    let verifyCalls = 0;
+    const countingTotp = {
+      generateSecret: () => totpService.generateSecret(),
+      buildOtpauthUri: (s: string, e: string) => totpService.buildOtpauthUri(s, e),
+      verify: (sec: string, code: string) => {
+        verifyCalls += 1;
+        return totpService.verify(sec, code);
+      },
+    };
+    const disable = new DisableTotpUseCase(authRepository, countingTotp as never, encryption);
+
+    const valid = new Set<string>();
+    const now = Date.now();
+    for (const offset of [-30_000, 0, 30_000]) {
+      authenticator.options = { epoch: now + offset };
+      valid.add(authenticator.generate(secret));
+    }
+    authenticator.resetOptions();
+    authenticator.options = { step: 30, window: 1 };
+    const wrong: string[] = [];
+    for (let n = 0; wrong.length < 20; n++) {
+      const c = String(400000 + n);
+      if (!valid.has(c)) wrong.push(c);
+    }
+
+    const results = await settle(wrong.map((c) => disable.execute(auth.id!, c)));
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(0);
+    expect(verifyCalls).toBeLessThanOrEqual(5);
+    expect((await dbRow(auth.id!)).attempts).toBe(5);
+    const reloaded = await authRepository.findById(auth.id!);
+    expect(reloaded!.activeTwoFactorMethod()).toBe('TOTP');
   });
 });

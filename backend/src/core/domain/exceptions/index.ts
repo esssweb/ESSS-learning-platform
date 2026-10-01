@@ -12,3 +12,4 @@ export * from './user-already-exists.exception';
 export * from './invalid-two-factor-code.exception';
 export * from './two-factor-challenge-invalid.exception';
 export * from './two-factor-not-enrolled.exception';
+export * from './two-factor-already-enabled.exception';
