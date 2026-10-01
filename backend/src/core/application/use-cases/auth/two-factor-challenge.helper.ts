@@ -67,7 +67,7 @@ export async function issueTwoFactorChallenge(
   }
 
   if (outcome.method === TwoFactorMethod.EMAIL) {
-    await deps.emailService.sendOtp(outcome.email, outcome.otpCode!);
+    await deps.emailService.sendLoginOtp(outcome.email, outcome.otpCode!, expiresAt);
   }
 
   return {

@@ -5,12 +5,14 @@ import { EmailServiceInterface } from '../../../core/application/ports/output/em
 /**
  * Email service implementation that delegates to a Google Apps Script Web App.
  *
- * The script expects a POST body with:
+ * Registration (sendOtp) POSTs:
  *   { email: string, verificationUrl: string }
+ * The OTP is embedded in the verification URL so the user just clicks a link.
  *
- * The OTP is embedded in the verification URL so the existing OTP-based
- * auth flow is unchanged — the user just clicks a link instead of
- * typing a code manually.
+ * Admin sign-in (sendLoginOtp) POSTs:
+ *   { email: string, type: 'admin-login-code', code: string, expiresInMinutes: number }
+ * The Apps Script must branch on `type === 'admin-login-code'` and render the
+ * code as text (no link). The registration body is unchanged.
  */
 @Injectable()
 export class GoogleScriptEmailService implements EmailServiceInterface {
@@ -39,10 +41,41 @@ export class GoogleScriptEmailService implements EmailServiceInterface {
       this.logger.log(`[DEV] OTP for ${email}: ${otpCode}`);
     }
 
+    await this.post(scriptUrl, { email, verificationUrl });
+
+    this.logger.log(`OTP email delivered successfully to ${email}`);
+  }
+
+  async sendLoginOtp(email: string, otpCode: string, expiresAt: Date): Promise<void> {
+    const scriptUrl = this.configService.get<string>('GOOGLE_SCRIPT_URL');
+    if (!scriptUrl) {
+      throw new Error(
+        'GOOGLE_SCRIPT_URL is not configured but GoogleScriptEmailService is in use.',
+      );
+    }
+
+    const expiresInMinutes = Math.max(1, Math.round((expiresAt.getTime() - Date.now()) / 60000));
+
+    this.logger.log(`Sending admin login code via Google Apps Script to ${email}`);
+    if (this.configService.get<string>('NODE_ENV') !== 'production') {
+      this.logger.log(`[DEV] Login OTP for ${email}: ${otpCode}`);
+    }
+
+    await this.post(scriptUrl, {
+      email,
+      type: 'admin-login-code',
+      code: otpCode,
+      expiresInMinutes,
+    });
+
+    this.logger.log(`Login code email delivered successfully to ${email}`);
+  }
+
+  private async post(scriptUrl: string, payload: Record<string, unknown>): Promise<void> {
     const response = await fetch(scriptUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, verificationUrl }),
+      body: JSON.stringify(payload),
       // Google Apps Script redirects after a successful POST — follow them
       redirect: 'follow',
     });
@@ -76,7 +109,5 @@ export class GoogleScriptEmailService implements EmailServiceInterface {
         `Google Apps Script email error: ${result.error ?? 'unknown'}`,
       );
     }
-
-    this.logger.log(`OTP email delivered successfully to ${email}`);
   }
 }

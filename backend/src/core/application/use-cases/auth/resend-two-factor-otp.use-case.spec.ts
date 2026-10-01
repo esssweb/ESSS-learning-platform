@@ -41,7 +41,7 @@ const build = (
     generateTwoFactorChallengeToken: jest.fn().mockReturnValue('fresh-token'),
   };
   const emailService = {
-    sendOtp: jest.fn().mockImplementation(async () => {
+    sendLoginOtp: jest.fn().mockImplementation(async () => {
       log.push('send');
     }),
   };
@@ -62,7 +62,7 @@ describe('ResendTwoFactorOtpUseCase', () => {
 
     expect(log).toEqual(['commit', 'send']);
 
-    expect(emailService.sendOtp).toHaveBeenCalledTimes(1);
+    expect(emailService.sendLoginOtp).toHaveBeenCalledTimes(1);
     expect(authRepository.update).not.toHaveBeenCalled();
     expect(tokenService.generateTwoFactorChallengeToken).toHaveBeenCalledWith({
       authId: 'auth-1',
@@ -80,7 +80,7 @@ describe('ResendTwoFactorOtpUseCase', () => {
     await expect(useCase.execute({ challengeToken: 't' })).rejects.toBeInstanceOf(
       TwoFactorChallengeInvalidException,
     );
-    expect(emailService.sendOtp).not.toHaveBeenCalled();
+    expect(emailService.sendLoginOtp).not.toHaveBeenCalled();
   });
 
   it('rejects a challenge whose method does not match the account', async () => {
@@ -89,7 +89,7 @@ describe('ResendTwoFactorOtpUseCase', () => {
     await expect(useCase.execute({ challengeToken: 't' })).rejects.toBeInstanceOf(
       TwoFactorChallengeInvalidException,
     );
-    expect(emailService.sendOtp).not.toHaveBeenCalled();
+    expect(emailService.sendLoginOtp).not.toHaveBeenCalled();
   });
 
   it('rejects when the token has no authId', async () => {
@@ -120,7 +120,7 @@ describe('ResendTwoFactorOtpUseCase', () => {
     await expect(useCase.execute({ challengeToken: 't' })).rejects.toBeInstanceOf(
       TwoFactorChallengeInvalidException,
     );
-    expect(emailService.sendOtp).not.toHaveBeenCalled();
+    expect(emailService.sendLoginOtp).not.toHaveBeenCalled();
   });
 
   it('rejects an unknown account', async () => {
@@ -129,7 +129,7 @@ describe('ResendTwoFactorOtpUseCase', () => {
     await expect(useCase.execute({ challengeToken: 't' })).rejects.toBeInstanceOf(
       TwoFactorChallengeInvalidException,
     );
-    expect(emailService.sendOtp).not.toHaveBeenCalled();
+    expect(emailService.sendLoginOtp).not.toHaveBeenCalled();
   });
 
   it('rejects a token that fails verification', async () => {
@@ -142,6 +142,6 @@ describe('ResendTwoFactorOtpUseCase', () => {
       TwoFactorChallengeInvalidException,
     );
     expect(authRepository.findById).not.toHaveBeenCalled();
-    expect(emailService.sendOtp).not.toHaveBeenCalled();
+    expect(emailService.sendLoginOtp).not.toHaveBeenCalled();
   });
 });

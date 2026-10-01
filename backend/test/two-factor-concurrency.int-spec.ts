@@ -51,7 +51,7 @@ describeIf('two-factor concurrency (real Postgres)', () => {
   let totpService: OtplibTotpService;
   let encryption: AesEncryptionService;
   let sentOtps: string[];
-  let emailService: { sendOtp: (e: string, c: string) => Promise<void> };
+  let emailService: { sendLoginOtp: (e: string, c: string) => Promise<void> };
   let verify: VerifyTwoFactorUseCase;
   let seq = 0;
 
@@ -106,7 +106,7 @@ describeIf('two-factor concurrency (real Postgres)', () => {
     totpService = new OtplibTotpService();
     encryption = new AesEncryptionService(config as never);
     emailService = {
-      sendOtp: async (_email, code) => {
+      sendLoginOtp: async (_email, code) => {
         sentOtps.push(code);
       },
     };

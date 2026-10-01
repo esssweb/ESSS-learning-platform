@@ -34,7 +34,7 @@ const withTotp = (auth: Auth) => {
 const build = (role: UserRole, auth: Auth = makeAuth(), passwordOk = true) => {
   // updateExclusively runs `work` on the in-memory aggregate and snapshots primitive
   // state AFTER work returns (the committed state), logging 'commit' to the same
-  // list as sendOtp so commit-before-send ordering is pinned. Plain update throws
+  // list as sendLoginOtp so commit-before-send ordering is pinned. Plain update throws
   // so any path still using it fails loudly.
   const calls: string[] = [];
   const snapshots: {
@@ -75,7 +75,7 @@ const build = (role: UserRole, auth: Auth = makeAuth(), passwordOk = true) => {
     generateTwoFactorChallengeToken: jest.fn().mockReturnValue('challenge'),
   };
   const emailService = {
-    sendOtp: jest.fn().mockImplementation(async () => {
+    sendLoginOtp: jest.fn().mockImplementation(async () => {
       calls.push('send');
     }),
   };
@@ -116,7 +116,7 @@ describe('LoginUseCase two-factor branch', () => {
 
     expect(result).toMatchObject({ twoFactorRequired: true, method: 'EMAIL' });
     expect(result).not.toHaveProperty('accessToken');
-    expect(emailService.sendOtp).toHaveBeenCalledTimes(1);
+    expect(emailService.sendLoginOtp).toHaveBeenCalledTimes(1);
   });
 
   it('returns a challenge for a super admin', async () => {
@@ -133,7 +133,7 @@ describe('LoginUseCase two-factor branch', () => {
     const result = await useCase.execute({ email: 'a@b.co', password: 'pw' });
 
     expect(result).toMatchObject({ accessToken: 'access', refreshToken: 'refresh' });
-    expect(emailService.sendOtp).not.toHaveBeenCalled();
+    expect(emailService.sendLoginOtp).not.toHaveBeenCalled();
   });
 
   it('returns expiresAt about five minutes out, matching the challenge token', async () => {
@@ -158,7 +158,7 @@ describe('LoginUseCase two-factor branch', () => {
     const result = await useCase.execute({ email: 'a@b.co', password: 'pw' });
 
     expect(result).toMatchObject({ twoFactorRequired: true, method: 'TOTP' });
-    expect(emailService.sendOtp).not.toHaveBeenCalled();
+    expect(emailService.sendLoginOtp).not.toHaveBeenCalled();
     expect(authRepository.updateExclusively).toHaveBeenCalledTimes(1);
     expect(authRepository.update).not.toHaveBeenCalled();
     expect(auth.loginOtpAttemptCount).toBe(0);
@@ -185,7 +185,7 @@ describe('LoginUseCase admin two-factor invariants', () => {
       await expect(h.useCase.execute(creds)).rejects.toBeInstanceOf(InvalidCredentialsException);
 
       expect(h.authRepository.updateExclusively).not.toHaveBeenCalled();
-      expect(h.emailService.sendOtp).not.toHaveBeenCalled();
+      expect(h.emailService.sendLoginOtp).not.toHaveBeenCalled();
       expect(h.tokenService.generateTwoFactorChallengeToken).not.toHaveBeenCalled();
     });
 
@@ -202,7 +202,7 @@ describe('LoginUseCase admin two-factor invariants', () => {
         await expect(h.useCase.execute(creds)).rejects.toBeInstanceOf(OtpRateLimitException);
         // The locked section returns without mutating: committed counters unchanged.
         expect(h.snapshots.at(-1)).toMatchObject({ requestCount: 3, code: undefined });
-        expect(h.emailService.sendOtp).not.toHaveBeenCalled();
+        expect(h.emailService.sendLoginOtp).not.toHaveBeenCalled();
         expect(h.tokenService.generateTwoFactorChallengeToken).not.toHaveBeenCalled();
       }
     });
@@ -212,7 +212,7 @@ describe('LoginUseCase admin two-factor invariants', () => {
 
       await expect(h.useCase.execute(creds)).rejects.toBeInstanceOf(UnauthorizedAccessException);
 
-      expect(h.emailService.sendOtp).not.toHaveBeenCalled();
+      expect(h.emailService.sendLoginOtp).not.toHaveBeenCalled();
       expect(h.authRepository.updateExclusively).not.toHaveBeenCalled();
     });
 
@@ -251,7 +251,7 @@ describe('LoginUseCase admin two-factor invariants', () => {
     expect(h.snapshots[0].requestCount).toBe(1);
     expect(h.snapshots[0].attemptCount).toBe(0);
     expect(h.snapshots[0].expiresAt?.getTime()).toBe(result.expiresAt.getTime());
-    const sentCode = h.emailService.sendOtp.mock.calls[0][1];
+    const sentCode = h.emailService.sendLoginOtp.mock.calls[0][1];
     expect(sentCode).toMatch(/^\d{6}$/);
     expect(h.hashService.hash).toHaveBeenCalledWith(sentCode);
   });
@@ -281,7 +281,7 @@ describe('LoginUseCase admin two-factor invariants', () => {
       expect(h.deviceTokenRepository.create).toHaveBeenCalledTimes(1);
       expect(h.refreshTokenRepository.create.mock.calls[0][0].deviceTokenId).toBe('dt-1');
       expect(h.authRepository.updateExclusively).not.toHaveBeenCalled();
-      expect(h.emailService.sendOtp).not.toHaveBeenCalled();
+      expect(h.emailService.sendLoginOtp).not.toHaveBeenCalled();
       expect(h.tokenService.generateTwoFactorChallengeToken).not.toHaveBeenCalled();
     }
   });

@@ -136,7 +136,7 @@ describe('Admin two-factor authentication (e2e)', () => {
       // asserted by capturing the plaintext on its way to the mail service.
       .overrideProvider(EMAIL_SERVICE)
       .useValue({
-        sendOtp: async (_email: string, code: string) => {
+        sendLoginOtp: async (_email: string, code: string) => {
           sentOtp = code;
         },
       })
