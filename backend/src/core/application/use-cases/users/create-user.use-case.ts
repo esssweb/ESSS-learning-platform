@@ -55,6 +55,8 @@ export class CreateUserUseCase {
           otpAttemptCount: 0,
           otpRequestCount: 0,
           isActive: true,
+          loginOtpAttemptCount: 0,
+          loginOtpRequestCount: 0,
         }),
       );
     }

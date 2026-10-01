@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: localdev
+      POSTGRES_DB: esss_learning
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d esss_learning"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env.dev
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USERNAME: postgres
+      DB_PASSWORD: localdev
+      DB_DATABASE: esss_learning
+      DB_SSL: "false"
+      NODE_ENV: development
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

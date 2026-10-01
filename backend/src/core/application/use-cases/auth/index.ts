@@ -4,3 +4,8 @@ export * from './refresh-token.use-case';
 export * from './logout.use-case';
 export * from './send-verification-otp.use-case';
 export * from './verify-otp.use-case';
+export * from './verify-two-factor.use-case';
+export * from './resend-two-factor-otp.use-case';
+export * from './enroll-totp.use-case';
+export * from './confirm-totp.use-case';
+export * from './disable-totp.use-case';

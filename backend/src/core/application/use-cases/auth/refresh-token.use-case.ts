@@ -55,6 +55,14 @@ export class RefreshTokenUseCase {
       throw new UnauthorizedAccessException('user not found or inactive');
     }
 
+    // A token carries the role it was minted with. A mismatch means the role changed since
+    // (e.g. a promotion racing this refresh, which could insert a token after AssignRole's
+    // revoke). Rejecting here closes every interleaving, so a stale token can never mint
+    // an access token for a role that never passed that role's login requirements (2FA).
+    if (payload.role !== user.role) {
+      throw new UnauthorizedAccessException('refresh token role mismatch');
+    }
+
     const auth = await this.authRepository.findById(user.authId);
 
     if (!auth || !auth.isActive) {

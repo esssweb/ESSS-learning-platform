@@ -1,0 +1,415 @@
+/**
+ * Proves the two-factor attempt caps and rate limits hold under concurrent
+ * requests against a REAL Postgres (row lock in AuthRepository.updateExclusively).
+ * Skipped unless TEST_DB_PORT is set. The database is wiped and rebuilt from
+ * the migrations, so point it only at a scratch database.
+ */
+import { readdirSync } from 'fs';
+import { join } from 'path';
+import { Sequelize as SequelizeTs } from 'sequelize-typescript';
+import { Sequelize } from 'sequelize';
+import { authenticator } from 'otplib';
+import { randomBytes } from 'crypto';
+import * as jwt from 'jsonwebtoken';
+import { AuthEntity } from '../src/infrastructure/database/entities/auth.entity';
+import { UserEntity } from '../src/infrastructure/database/entities/user.entity';
+import { RefreshTokenEntity } from '../src/infrastructure/database/entities/refresh-token.entity';
+import { DeviceTokenEntity } from '../src/infrastructure/database/entities/device-token.entity';
+import { AuthRepository } from '../src/infrastructure/database/repositories/auth/auth.repository';
+import { UserRepository } from '../src/infrastructure/database/repositories/user/user.repository';
+import { RefreshTokenRepository } from '../src/infrastructure/database/repositories/auth/refresh-token.repository';
+import { DeviceTokenRepository } from '../src/infrastructure/database/repositories/auth/device-token.repository';
+import { BcryptHashService } from '../src/infrastructure/security/services/bcrypt-hash.service';
+import { JwtTokenService } from '../src/infrastructure/security/services/jwt-token.service';
+import { OtplibTotpService } from '../src/infrastructure/security/services/totp.service';
+import { AesEncryptionService } from '../src/infrastructure/security/services/encryption.service';
+import { VerifyTwoFactorUseCase } from '../src/core/application/use-cases/auth/verify-two-factor.use-case';
+import { AssignRoleUseCase } from '../src/core/application/use-cases/users/assign-role.use-case';
+import { RefreshTokenUseCase } from '../src/core/application/use-cases/auth/refresh-token.use-case';
+import { RefreshToken } from '../src/core/domain/models/auth/refresh-token.model';
+import { DisableTotpUseCase } from '../src/core/application/use-cases/auth/disable-totp.use-case';
+import { issueTwoFactorChallenge } from '../src/core/application/use-cases/auth/two-factor-challenge.helper';
+import { EmailServiceInterface } from '../src/core/application/ports/output/email.service.interface';
+import { Auth } from '../src/core/domain/models/auth/auth.model';
+import { User } from '../src/core/domain/models/user/user.model';
+import { UserRole } from '../src/core/domain/enums/user-role.enum';
+import { InvalidTwoFactorCodeException } from '../src/core/domain/exceptions/invalid-two-factor-code.exception';
+import { TwoFactorChallengeInvalidException } from '../src/core/domain/exceptions/two-factor-challenge-invalid.exception';
+import { OtpRateLimitException } from '../src/core/domain/exceptions/otp-rate-limit.exception';
+
+const enabled = !!process.env.TEST_DB_PORT;
+const describeIf = enabled ? describe : describe.skip;
+
+describeIf('two-factor concurrency (real Postgres)', () => {
+  jest.setTimeout(120_000);
+
+  let sequelize: SequelizeTs;
+  let authRepository: AuthRepository;
+  let userRepository: UserRepository;
+  let refreshRepo: RefreshTokenRepository;
+  let deviceRepo: DeviceTokenRepository;
+  let realHash: BcryptHashService;
+  let compareCalls: number;
+  let hashService: {
+    hash: (p: string) => Promise<string>;
+    compare: (p: string, h: string) => Promise<boolean>;
+  };
+  let tokenService: JwtTokenService;
+  let totpService: OtplibTotpService;
+  let encryption: AesEncryptionService;
+  let sentOtps: string[];
+  let emailService: EmailServiceInterface;
+  let verify: VerifyTwoFactorUseCase;
+  let seq = 0;
+
+  beforeAll(async () => {
+    // The next statements DROP SCHEMA public CASCADE; refuse anything not named like a scratch DB.
+    if (!(process.env.TEST_DB_NAME ?? '').endsWith('_test')) {
+      throw new Error('Refusing to wipe database: TEST_DB_NAME must end with "_test"');
+    }
+
+    sequelize = new SequelizeTs({
+      dialect: 'postgres',
+      host: process.env.TEST_DB_HOST ?? '127.0.0.1',
+      port: Number(process.env.TEST_DB_PORT),
+      username: process.env.TEST_DB_USER ?? 'postgres',
+      password: process.env.TEST_DB_PASSWORD ?? '',
+      database: process.env.TEST_DB_NAME ?? 'esss_test',
+      logging: false,
+      pool: { max: 20 },
+      models: [AuthEntity, UserEntity, RefreshTokenEntity, DeviceTokenEntity],
+    });
+
+    await sequelize.query('DROP SCHEMA public CASCADE');
+    await sequelize.query('CREATE SCHEMA public');
+
+    const dir = join(__dirname, '../src/infrastructure/database/migrations');
+    const files = readdirSync(dir)
+      .filter((f) => f.endsWith('.js'))
+      .sort();
+    for (const file of files) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const migration = require(join(dir, file));
+      await migration.up(sequelize.getQueryInterface(), Sequelize);
+    }
+
+    const config = {
+      get: (key: string) =>
+        ({
+          JWT_SECRET: 'int-test-access-secret',
+          REFRESH_TOKEN_SECRET: 'int-test-refresh-secret',
+          TOTP_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
+        })[key],
+    };
+
+    authRepository = new AuthRepository(AuthEntity);
+    userRepository = new UserRepository(UserEntity);
+    refreshRepo = new RefreshTokenRepository(RefreshTokenEntity);
+    deviceRepo = new DeviceTokenRepository(DeviceTokenEntity);
+    realHash = new BcryptHashService();
+    hashService = {
+      hash: (p) => realHash.hash(p),
+      compare: async (p, h) => {
+        compareCalls += 1;
+        return realHash.compare(p, h);
+      },
+    };
+    tokenService = new JwtTokenService(config as never);
+    totpService = new OtplibTotpService();
+    encryption = new AesEncryptionService(config as never);
+    emailService = {
+      sendOtp: async () => {
+        throw new Error('registration email must not be used for admin login codes');
+      },
+      sendLoginOtp: async (_email, code) => {
+        sentOtps.push(code);
+      },
+    };
+    verify = new VerifyTwoFactorUseCase(
+      authRepository,
+      userRepository,
+      refreshRepo,
+      deviceRepo,
+      hashService as never,
+      tokenService,
+      totpService,
+      encryption,
+    );
+  });
+
+  afterAll(async () => {
+    if (sequelize) await sequelize.close();
+  });
+
+  beforeEach(() => {
+    compareCalls = 0;
+    sentOtps = [];
+  });
+
+  const seedAdmin = async (opts: { totpSecret?: string; emailOtp?: string } = {}) => {
+    seq += 1;
+    const auth = await authRepository.create(
+      new Auth({
+        email: `admin${seq}@esss.local`,
+        password: 'x',
+        emailVerified: true,
+        otpAttemptCount: 0,
+        otpRequestCount: 0,
+        isActive: true,
+        loginOtpAttemptCount: 0,
+        loginOtpRequestCount: 0,
+      }),
+    );
+    await userRepository.create(
+      new User({ authId: auth.id!, firstName: 'A', lastName: 'B', role: UserRole.ADMIN }),
+    );
+    if (opts.emailOtp) {
+      auth.setLoginOtp(await realHash.hash(opts.emailOtp), new Date(Date.now() + 5 * 60_000));
+      await authRepository.update(auth.id!, auth);
+    }
+    if (opts.totpSecret) {
+      auth.enrollTotp(encryption.encrypt(opts.totpSecret));
+      auth.confirmTotp();
+      await authRepository.update(auth.id!, auth);
+    }
+    return auth;
+  };
+
+  const challengeFor = (authId: string, method: string) =>
+    tokenService.generateTwoFactorChallengeToken({ authId, method });
+
+  const dbRow = async (authId: string) => {
+    const [rows] = (await sequelize.query(
+      'SELECT login_otp_attempt_count AS attempts, login_otp_request_count AS requests, login_otp_code AS code FROM auth WHERE id = :id',
+      { replacements: { id: authId } },
+    )) as [Array<{ attempts: number; requests: number; code: string | null }>, unknown];
+    return rows[0];
+  };
+
+  const settle = (promises: Promise<unknown>[]) => Promise.allSettled(promises);
+
+  it('runs the migrations on real Postgres (auth table has the 2FA columns)', async () => {
+    const auth = await seedAdmin();
+    const row = await dbRow(auth.id!);
+    expect(row.attempts).toBe(0);
+  });
+
+  it('EMAIL: 60 concurrent guesses with the correct one at ~46 -> at most 5 compares, no tokens, count 5', async () => {
+    const auth = await seedAdmin({ emailOtp: '123456' });
+    const token = challengeFor(auth.id!, 'EMAIL');
+
+    const calls: Promise<unknown>[] = [];
+    for (let i = 0; i < 60; i++) {
+      const code = i === 46 ? '123456' : String(100000 + i);
+      calls.push(verify.execute({ challengeToken: token, code }));
+    }
+    const results = await settle(calls);
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(0);
+    expect(compareCalls).toBeLessThanOrEqual(5);
+    const row = await dbRow(auth.id!);
+    // The fifth failure clears the OTP, which also resets the counter; the challenge is dead.
+    expect(row.code).toBeNull();
+    expect(compareCalls).toBe(5);
+  });
+
+  it('EMAIL: 10 sequential wrong guesses -> exactly 5 compares', async () => {
+    const auth = await seedAdmin({ emailOtp: '123456' });
+    const token = challengeFor(auth.id!, 'EMAIL');
+
+    for (let i = 0; i < 10; i++) {
+      await expect(
+        verify.execute({ challengeToken: token, code: String(200000 + i) }),
+      ).rejects.toBeDefined();
+    }
+
+    expect(compareCalls).toBe(5);
+    // And the correct code no longer works.
+    await expect(verify.execute({ challengeToken: token, code: '123456' })).rejects.toBeDefined();
+    expect(compareCalls).toBe(5);
+  });
+
+  it('EMAIL: 5 concurrent verifies with the SAME correct code -> exactly one succeeds', async () => {
+    const auth = await seedAdmin({ emailOtp: '123456' });
+    const token = challengeFor(auth.id!, 'EMAIL');
+
+    const results = await settle(
+      Array.from({ length: 5 }, () => verify.execute({ challengeToken: token, code: '123456' })),
+    );
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    // Only the lock makes the losers fail on the OTP check: without it they would all
+    // compare, and fail later on the UNIQUE refresh_tokens.token constraint instead.
+    expect(compareCalls).toBe(1);
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    expect(rejected).toHaveLength(4);
+    for (const r of rejected) {
+      expect(
+        r.reason instanceof InvalidTwoFactorCodeException ||
+          r.reason instanceof TwoFactorChallengeInvalidException,
+      ).toBe(true);
+    }
+    expect((await dbRow(auth.id!)).code).toBeNull();
+  });
+
+  it('TOTP: 60 concurrent guesses with a valid code at ~46 -> no tokens, count exactly 5', async () => {
+    const secret = totpService.generateSecret();
+    const auth = await seedAdmin({ totpSecret: secret });
+    // A challenge issuance gives the TOTP attempt budget its fresh start.
+    const token = challengeFor(auth.id!, 'TOTP');
+    const valid = new Set<string>();
+    const now = Date.now();
+    for (const offset of [-30_000, 0, 30_000]) {
+      authenticator.options = { epoch: now + offset };
+      valid.add(authenticator.generate(secret));
+    }
+    authenticator.resetOptions();
+    authenticator.options = { step: 30, window: 1 };
+    const validCode = authenticator.generate(secret);
+
+    const wrong: string[] = [];
+    for (let n = 0; wrong.length < 60; n++) {
+      const c = String(300000 + n);
+      if (!valid.has(c)) wrong.push(c);
+    }
+
+    const calls: Promise<unknown>[] = [];
+    for (let i = 0; i < 60; i++) {
+      calls.push(verify.execute({ challengeToken: token, code: i === 46 ? validCode : wrong[i] }));
+    }
+    const results = await settle(calls);
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(0);
+    expect((await dbRow(auth.id!)).attempts).toBe(5);
+  });
+
+  it('challenge issuance: 10 concurrent requests with 2 of 3 used -> exactly 1 succeeds, count 3', async () => {
+    const auth = await seedAdmin();
+    await sequelize.query(
+      'UPDATE auth SET login_otp_request_count = 2, login_otp_last_sent_at = now() WHERE id = :id',
+      { replacements: { id: auth.id } },
+    );
+    const deps = {
+      authRepository,
+      hashService: hashService as never,
+      tokenService,
+      emailService,
+    };
+    const stale = (await authRepository.findById(auth.id!))!;
+
+    const results = await settle(
+      Array.from({ length: 10 }, () => issueTwoFactorChallenge(deps, stale)),
+    );
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+    expect(rejected).toHaveLength(9);
+    for (const r of rejected) expect(r.reason).toBeInstanceOf(OtpRateLimitException);
+    expect((await dbRow(auth.id!)).requests).toBe(3);
+    expect(sentOtps).toHaveLength(1);
+  });
+
+  it('DisableTotp: 20 concurrent wrong codes -> at most 5 verifies, count 5, TOTP still enabled', async () => {
+    const secret = totpService.generateSecret();
+    const auth = await seedAdmin({ totpSecret: secret });
+    let verifyCalls = 0;
+    const countingTotp = {
+      generateSecret: () => totpService.generateSecret(),
+      buildOtpauthUri: (s: string, e: string) => totpService.buildOtpauthUri(s, e),
+      verify: (sec: string, code: string) => {
+        verifyCalls += 1;
+        return totpService.verify(sec, code);
+      },
+    };
+    const disable = new DisableTotpUseCase(authRepository, countingTotp as never, encryption);
+
+    const valid = new Set<string>();
+    const now = Date.now();
+    for (const offset of [-30_000, 0, 30_000]) {
+      authenticator.options = { epoch: now + offset };
+      valid.add(authenticator.generate(secret));
+    }
+    authenticator.resetOptions();
+    authenticator.options = { step: 30, window: 1 };
+    const wrong: string[] = [];
+    for (let n = 0; wrong.length < 20; n++) {
+      const c = String(400000 + n);
+      if (!valid.has(c)) wrong.push(c);
+    }
+
+    const results = await settle(wrong.map((c) => disable.execute(auth.id!, c)));
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(0);
+    expect(verifyCalls).toBeLessThanOrEqual(5);
+    expect((await dbRow(auth.id!)).attempts).toBe(5);
+    const reloaded = await authRepository.findById(auth.id!);
+    expect(reloaded!.activeTwoFactorMethod()).toBe('TOTP');
+  });
+
+  it('promotion racing in-flight refreshes: no surviving refresh token can mint an ADMIN access token', async () => {
+    const assign = new AssignRoleUseCase(userRepository, authRepository, refreshRepo);
+    const refresh = new RefreshTokenUseCase(
+      refreshRepo,
+      userRepository,
+      authRepository,
+      tokenService,
+    );
+    const ROUNDS = 40;
+
+    for (let i = 0; i < ROUNDS; i++) {
+      seq += 1;
+      const auth = await authRepository.create(
+        new Auth({
+          email: `student${seq}@esss.local`,
+          password: 'x',
+          emailVerified: true,
+          otpAttemptCount: 0,
+          otpRequestCount: 0,
+          isActive: true,
+          loginOtpAttemptCount: 0,
+          loginOtpRequestCount: 0,
+        }),
+      );
+      const user = await userRepository.create(
+        new User({ authId: auth.id!, firstName: 'S', lastName: 'T', role: UserRole.STUDENT }),
+      );
+      // Older iat so the token minted by the refresh differs from the seeded one.
+      const seed = jwt.sign(
+        {
+          userId: user.id,
+          email: auth.email,
+          role: UserRole.STUDENT,
+          iat: Math.floor(Date.now() / 1000) - 60,
+        },
+        'int-test-refresh-secret',
+        { expiresIn: '7d' },
+      );
+      await refreshRepo.create(
+        new RefreshToken({
+          userId: user.id!,
+          token: seed,
+          expiresAt: new Date(Date.now() + 86_400_000),
+          isRevoked: false,
+        }),
+      );
+
+      await Promise.allSettled([
+        refresh.execute({ refreshToken: seed }),
+        assign.execute(user.id!, { role: UserRole.ADMIN }),
+      ]);
+
+      const [live] = (await sequelize.query(
+        'SELECT token FROM refresh_tokens WHERE user_id = :u AND is_revoked = false',
+        { replacements: { u: user.id } },
+      )) as [Array<{ token: string }>, unknown];
+      for (const { token } of live) {
+        const out = await refresh.execute({ refreshToken: token }).then(
+          (v) => v,
+          () => null,
+        );
+        const role = out ? (jwt.decode(out.accessToken) as { role: string }).role : null;
+        expect(role).not.toBe(UserRole.ADMIN);
+      }
+    }
+  });
+});

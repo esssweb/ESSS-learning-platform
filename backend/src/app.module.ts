@@ -18,7 +18,7 @@ import { RolesGuard } from './infrastructure/security/guards/roles.guard';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: '.env.dev',
       load: [appConfig, databaseConfig, jwtConfig],
       validate: validateEnvironment,
     }),
