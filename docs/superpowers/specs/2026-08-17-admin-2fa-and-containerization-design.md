@@ -228,3 +228,36 @@ The `AllExceptionsFilter` defect — which turned every error response into a 50
 ## 14. Open question
 
 The original request numbered its tasks 1, 3, 4 — there is no item 2. If something was intended there, it is not captured in this spec.
+
+---
+
+## 15. Amendments made during implementation
+
+Per-task review found defects in this design. Each was ruled on and implemented; the code is authoritative where it differs from §4–§12 above.
+
+| # | Change | Why |
+|---|---|---|
+| R1 | `JwtStrategy` rejects any bearer token carrying a `purpose` claim or lacking a user id | Challenge and email-verification tokens are signed with the access secret and previously authenticated as access tokens — a password-only token could call `/auth/logout` and revoke sessions |
+| R2 | TOTP challenges share the email budget: 3 challenges/hour, 5 attempts per challenge | §7 capped email codes only; TOTP guessing was unlimited for anyone holding the password |
+| R3 | Disabling TOTP respects the 5-attempt cap | A hijacked session could brute-force the downgrade |
+| R4 | TOTP enroll/confirm/disable are `@Roles(ADMIN, SUPER_ADMIN)` | §5 says admin-only; the plan had only the JWT guard |
+| R6 | One 5-minute TTL for the login OTP and the challenge (`TWO_FACTOR_CHALLENGE_TTL_MS`) | §7's 10-minute OTP rode on a 5-minute challenge; clients were told they had 10 minutes |
+| R7 | `POST /auth/2fa/resend` returns a fresh `challengeToken` | A code resent late in the window died with the original challenge |
+| R8 | Verify and resend reject a challenge whose `method` no longer matches the account's active factor | Prevents redeeming a challenge against the other factor after enroll/reset |
+| R9 | All 2FA state changes run under `AuthRepositoryInterface.updateExclusively` (`SELECT … FOR UPDATE` in a transaction) | Read-modify-write let concurrent requests bypass every cap: 60 parallel guesses were all checked against real Postgres. Proven fixed by an integration suite that fails when the lock is removed |
+| R10 | Enroll/confirm/disable/reset use the same lock | Same race class |
+| R11 | Enrolling while TOTP is already enabled returns 409; confirm requires a *pending* enrollment | Enrolling silently disabled the active factor, letting a session-holder replace the admin's authenticator |
+| R12 | `POST /auth/2fa/totp/enroll` requires the current password | Step-up auth: a stolen access token alone can no longer enroll an attacker's authenticator |
+
+Also corrected: the AES-GCM decrypt now requires a 16-byte auth tag (Node 20, our container base, otherwise accepts truncated tags) and validates ciphertext shape; the otplib epoch restore uses `resetOptions()` (the planned restore made every TOTP check after the first throw).
+
+### Rollout requirement added
+
+Refresh-token rotation never checks 2FA, so admin sessions created before this deploys would live on indefinitely without a second factor. After deploying, revoke existing admin refresh tokens (run manually):
+
+```sql
+UPDATE refresh_tokens
+SET is_revoked = true
+WHERE user_id IN (SELECT id FROM users WHERE role IN ('ADMIN', 'SUPER_ADMIN'))
+  AND is_revoked = false;
+```

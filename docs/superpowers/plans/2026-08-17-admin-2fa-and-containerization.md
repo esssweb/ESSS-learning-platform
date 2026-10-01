@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-17-admin-2fa-and-containerization-design.md`
 
+> **Executed with amendments.** Review during execution changed the design materially (row-locked 2FA state, TOTP attempt caps, password step-up on enrollment, bearer-token purpose rejection, and more). Task code below is the plan as written, not as shipped — see spec §15 for every amendment and its reason. The repository is authoritative.
+
 ## Global Constraints
 
 - `src/core/domain/` must contain **zero** framework imports. No `@nestjs/*`, no `sequelize`, no `class-validator`, no `bcrypt`. Verify with `grep -rn "@nestjs\|sequelize\|class-validator" src/core/domain/` returning nothing.
