@@ -130,12 +130,33 @@ describe('ResetTwoFactorUseCase', () => {
   });
 
   it('refuses a self-reset and touches nothing', async () => {
-    const { useCase, authRepository, userRepository } = build(enrolledAuth());
+    const { useCase, authRepository } = build(enrolledAuth());
 
     await expect(useCase.execute('user-1', 'user-1')).rejects.toBeInstanceOf(
       SelfTwoFactorResetException,
     );
     expect(authRepository.updateExclusively).not.toHaveBeenCalled();
-    expect(userRepository.findById).not.toHaveBeenCalled();
+  });
+
+  // Postgres UUID columns accept these spellings of one id; findById returns the canonical row.
+  const CANON = '123e4567-e89b-12d3-a456-426614174000';
+  it.each([
+    ['uppercase', CANON.toUpperCase()],
+    ['without hyphens', CANON.replace(/-/g, '')],
+    ['braced', `{${CANON}}`],
+  ])('refuses a self-reset when the id param is %s', async (_label, spelling) => {
+    const canonicalUser = new User({
+      id: CANON,
+      authId: 'auth-1',
+      firstName: 'A',
+      lastName: 'B',
+      role: UserRole.ADMIN,
+    });
+    const { useCase, authRepository } = build(enrolledAuth(), canonicalUser);
+
+    await expect(useCase.execute(spelling, CANON)).rejects.toBeInstanceOf(
+      SelfTwoFactorResetException,
+    );
+    expect(authRepository.updateExclusively).not.toHaveBeenCalled();
   });
 });

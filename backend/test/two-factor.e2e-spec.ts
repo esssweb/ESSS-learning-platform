@@ -388,6 +388,8 @@ describe('Admin two-factor authentication (e2e)', () => {
     });
 
     it('forbids a SUPER_ADMIN resetting their own two-factor', async () => {
+      // The fake entity returns this row for any id; the guard compares its canonical id.
+      userRow.id = 'user-2';
       const res = await request(http)
         .post('/users/user-2/2fa/reset')
         .set('Authorization', `Bearer ${mint('user-2', UserRole.SUPER_ADMIN)}`);

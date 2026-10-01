@@ -19,14 +19,16 @@ export class ResetTwoFactorUseCase {
   ) {}
 
   async execute(userId: string, actorUserId: string): Promise<{ message: string }> {
-    // A self-reset would sidestep the current-code requirement for disabling TOTP.
-    if (userId === actorUserId) {
-      throw new SelfTwoFactorResetException();
-    }
-
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new UserNotFoundException(userId);
+    }
+
+    // A self-reset would sidestep the current-code requirement for disabling TOTP.
+    // Compare the canonical id from the DB: Postgres UUID columns accept uppercase,
+    // hyphen-less and braced spellings, so the raw route param is not comparable.
+    if (user.id === actorUserId) {
+      throw new SelfTwoFactorResetException();
     }
 
     // Mutated under the row lock so a concurrent login/verify cannot overwrite the reset.
