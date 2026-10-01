@@ -16,20 +16,16 @@ describe('OtplibTotpService', () => {
     jest.useRealTimers();
   });
 
+  // Generates with a private clone and an explicit epoch, never touching the global.
   const codeForStep = (secret: string, step: number): string => {
-    const saved = authenticator.options;
-    try {
-      authenticator.options = { ...saved, epoch: step * 30 * 1000 };
-      return authenticator.generate(secret);
-    } finally {
-      authenticator.resetOptions();
-      authenticator.options = saved;
-    }
+    const totp = authenticator.clone();
+    totp.options = { step: 30, window: 1, epoch: step * 30 * 1000 };
+    return totp.generate(secret);
   };
 
   it('accepts a freshly generated code and reports its time-step', () => {
     const secret = service.generateSecret();
-    const code = authenticator.generate(secret);
+    const code = codeForStep(secret, currentStep);
 
     const step = service.verify(secret, code);
 
@@ -54,12 +50,39 @@ describe('OtplibTotpService', () => {
     expect(service.verify(secret, codeForStep(secret, currentStep - 2))).toBeNull();
   });
 
-  it('does not leak the probe epoch into later calls', () => {
+  it('does not touch the global authenticator options', () => {
+    const before = { ...authenticator.options };
     const secret = service.generateSecret();
     service.verify(secret, codeForStep(secret, currentStep - 1));
+    service.buildOtpauthUri(secret, 'a@b.c');
 
-    expect(authenticator.options.epoch).toBeUndefined();
-    expect(service.verify(secret, authenticator.generate(secret))).toBe(currentStep);
+    expect(authenticator.options).toEqual(before);
+    expect('epoch' in authenticator.options).toBe(false);
+    expect(service.verify(secret, codeForStep(secret, currentStep))).toBe(currentStep);
+  });
+
+  it('rejects non-numeric and wrong-length codes', () => {
+    const secret = service.generateSecret();
+
+    for (const bad of ['abcdef', '12345', '1234567', '', '12 456']) {
+      expect(service.verify(secret, bad)).toBeNull();
+    }
+  });
+
+  it('reads the clock once: a boundary crossed mid-verify still reports the right step', () => {
+    const secret = service.generateSecret();
+    const stepS = currentStep;
+    const t1 = (stepS + 1) * 30 * 1000 - 1; // last ms of step S
+    const t2 = (stepS + 1) * 30 * 1000; // first ms of step S+1
+    const code = codeForStep(secret, stepS - 1);
+
+    let calls = 0;
+    const spy = jest.spyOn(Date, 'now').mockImplementation(() => (++calls === 1 ? t1 : t2));
+    try {
+      expect(service.verify(secret, code)).toBe(stepS - 1);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('rejects an incorrect code', () => {
