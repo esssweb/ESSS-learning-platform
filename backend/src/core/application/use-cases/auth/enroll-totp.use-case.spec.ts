@@ -3,6 +3,7 @@ import { ConfirmTotpUseCase } from './confirm-totp.use-case';
 import { DisableTotpUseCase } from './disable-totp.use-case';
 import { Auth } from '../../../domain/models/auth/auth.model';
 import { TwoFactorMethod } from '../../../domain/enums/two-factor-method.enum';
+import { InvalidCredentialsException } from '../../../domain/exceptions/invalid-credentials.exception';
 import { InvalidTwoFactorCodeException } from '../../../domain/exceptions/invalid-two-factor-code.exception';
 import { TwoFactorAlreadyEnabledException } from '../../../domain/exceptions/two-factor-already-enabled.exception';
 import { TwoFactorNotEnrolledException } from '../../../domain/exceptions/two-factor-not-enrolled.exception';
@@ -74,6 +75,10 @@ const makeTotp = (step: number | null = 42) => ({
   buildOtpauthUri: jest.fn().mockReturnValue('otpauth://x'),
   verify: jest.fn().mockReturnValue(step),
 });
+const makeHash = (ok = true) => ({
+  hash: jest.fn(),
+  compare: jest.fn().mockResolvedValue(ok),
+});
 const makeEnc = () => ({
   encrypt: jest.fn().mockImplementation((v: string) => `enc(${v})`),
   decrypt: jest.fn().mockReturnValue('SECRET'),
@@ -84,9 +89,14 @@ describe('EnrollTotpUseCase', () => {
     const { repo, last } = build();
     const totp = makeTotp();
     const enc = makeEnc();
-    const useCase = new EnrollTotpUseCase(repo as never, totp as never, enc as never);
+    const useCase = new EnrollTotpUseCase(
+      repo as never,
+      totp as never,
+      enc as never,
+      makeHash() as never,
+    );
 
-    const result = await useCase.execute('auth-1');
+    const result = await useCase.execute('auth-1', 'pw');
 
     expect(result).toEqual({ otpauthUri: 'otpauth://x', secret: 'SECRET' });
     expect(enc.encrypt).toHaveBeenCalledWith('SECRET');
@@ -95,11 +105,54 @@ describe('EnrollTotpUseCase', () => {
     expect(last().method).toBe(TwoFactorMethod.EMAIL);
   });
 
+  it('rejects a wrong password and commits no secret or method change', async () => {
+    const { repo, last } = build();
+    const enc = makeEnc();
+    const useCase = new EnrollTotpUseCase(
+      repo as never,
+      makeTotp() as never,
+      enc as never,
+      makeHash(false) as never,
+    );
+
+    await expect(useCase.execute('auth-1', 'wrong')).rejects.toBeInstanceOf(
+      InvalidCredentialsException,
+    );
+
+    expect(last().totpSecret).toBeUndefined();
+    expect(last().pending).toBe(false);
+    expect(last().method).toBe(TwoFactorMethod.EMAIL);
+  });
+
+  it('rejects when the account has no stored password', async () => {
+    const { auth, repo, last } = build();
+    (auth as unknown as { props: { password?: string } }).props.password = undefined;
+    const hash = makeHash(true);
+    const useCase = new EnrollTotpUseCase(
+      repo as never,
+      makeTotp() as never,
+      makeEnc() as never,
+      hash as never,
+    );
+
+    await expect(useCase.execute('auth-1', 'pw')).rejects.toBeInstanceOf(
+      InvalidCredentialsException,
+    );
+
+    expect(hash.compare).not.toHaveBeenCalled();
+    expect(last().totpSecret).toBeUndefined();
+  });
+
   it('rejects enrollment while TOTP is enabled and leaves committed state unchanged', async () => {
     const { repo, last } = build({ secret: 'enc(OLD)', enabled: true });
-    const useCase = new EnrollTotpUseCase(repo as never, makeTotp() as never, makeEnc() as never);
+    const useCase = new EnrollTotpUseCase(
+      repo as never,
+      makeTotp() as never,
+      makeEnc() as never,
+      makeHash() as never,
+    );
 
-    await expect(useCase.execute('auth-1')).rejects.toBeInstanceOf(
+    await expect(useCase.execute('auth-1', 'pw')).rejects.toBeInstanceOf(
       TwoFactorAlreadyEnabledException,
     );
 
@@ -109,9 +162,14 @@ describe('EnrollTotpUseCase', () => {
 
   it('allows re-enrolling while still pending, replacing the pending secret', async () => {
     const { repo, last } = build({ secret: 'enc(OLD)' });
-    const useCase = new EnrollTotpUseCase(repo as never, makeTotp() as never, makeEnc() as never);
+    const useCase = new EnrollTotpUseCase(
+      repo as never,
+      makeTotp() as never,
+      makeEnc() as never,
+      makeHash() as never,
+    );
 
-    await useCase.execute('auth-1');
+    await useCase.execute('auth-1', 'pw');
 
     expect(last().totpSecret).toBe('enc(SECRET)');
     expect(last().method).toBe(TwoFactorMethod.EMAIL);
@@ -119,9 +177,14 @@ describe('EnrollTotpUseCase', () => {
 
   it('throws UserNotFoundException for an unknown auth id', async () => {
     const { repo } = build({ missing: true });
-    const useCase = new EnrollTotpUseCase(repo as never, makeTotp() as never, makeEnc() as never);
+    const useCase = new EnrollTotpUseCase(
+      repo as never,
+      makeTotp() as never,
+      makeEnc() as never,
+      makeHash() as never,
+    );
 
-    await expect(useCase.execute('nope')).rejects.toBeInstanceOf(UserNotFoundException);
+    await expect(useCase.execute('nope', 'pw')).rejects.toBeInstanceOf(UserNotFoundException);
   });
 });
 
