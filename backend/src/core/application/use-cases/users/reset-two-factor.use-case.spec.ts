@@ -116,7 +116,9 @@ describe('ResetTwoFactorUseCase', () => {
   it('throws when the auth row is missing', async () => {
     const { useCase } = build(null);
 
-    await expect(useCase.execute('user-1', 'actor-9')).rejects.toBeInstanceOf(UserNotFoundException);
+    await expect(useCase.execute('user-1', 'actor-9')).rejects.toBeInstanceOf(
+      UserNotFoundException,
+    );
   });
 
   it('returns the confirmation message', async () => {

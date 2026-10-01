@@ -14,7 +14,9 @@ describe('issueTwoFactorChallenge email delivery', () => {
       loginOtpRequestCount: 0,
     });
     const authRepository = {
-      updateExclusively: jest.fn(async (_id: string, work: (a: Auth) => Promise<unknown>) => work(auth)),
+      updateExclusively: jest.fn(async (_id: string, work: (a: Auth) => Promise<unknown>) =>
+        work(auth),
+      ),
     };
     const emailService = {
       sendOtp: jest.fn(),
@@ -24,7 +26,9 @@ describe('issueTwoFactorChallenge email delivery', () => {
       {
         authRepository: authRepository as never,
         hashService: { hash: jest.fn().mockResolvedValue('hashed') } as never,
-        tokenService: { generateTwoFactorChallengeToken: jest.fn().mockReturnValue('tok') } as never,
+        tokenService: {
+          generateTwoFactorChallengeToken: jest.fn().mockReturnValue('tok'),
+        } as never,
         emailService: emailService as never,
       },
       auth,
