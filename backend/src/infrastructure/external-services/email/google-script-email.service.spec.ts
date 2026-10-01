@@ -9,7 +9,10 @@ describe('GoogleScriptEmailService', () => {
   });
   const service = () =>
     new GoogleScriptEmailService(
-      config({ GOOGLE_SCRIPT_URL: 'https://script.test/exec', FRONTEND_URL: 'https://app.test' }) as never,
+      config({
+        GOOGLE_SCRIPT_URL: 'https://script.test/exec',
+        FRONTEND_URL: 'https://app.test',
+      }) as never,
     );
 
   beforeEach(() => {
@@ -47,7 +50,10 @@ describe('GoogleScriptEmailService', () => {
   });
 
   it('sendLoginOtp surfaces script-reported failures', async () => {
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ success: false, error: 'quota' }) });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: false, error: 'quota' }),
+    });
     await expect(
       service().sendLoginOtp('a@b.c', '123456', new Date(Date.now() + 300_000)),
     ).rejects.toThrow('quota');
