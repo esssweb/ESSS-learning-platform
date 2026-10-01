@@ -36,15 +36,6 @@ export class JwtTokenService implements TokenServiceInterface {
     });
   }
 
-  verifyAccessToken(token: string): TokenPayload {
-    const decoded = jwt.verify(token, this.accessTokenSecret) as jwt.JwtPayload;
-    return {
-      userId: decoded.userId,
-      email: decoded.email,
-      role: decoded.role,
-    };
-  }
-
   verifyRefreshToken(token: string): TokenPayload {
     const decoded = jwt.verify(token, this.refreshTokenSecret) as jwt.JwtPayload;
     return {

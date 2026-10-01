@@ -12,7 +12,6 @@ export interface TwoFactorChallengePayload {
 export interface TokenServiceInterface {
   generateAccessToken(payload: TokenPayload): string;
   generateRefreshToken(payload: TokenPayload): string;
-  verifyAccessToken(token: string): TokenPayload;
   verifyRefreshToken(token: string): TokenPayload;
   generateVerificationToken(payload: { email: string }): string;
   verifyVerificationToken(token: string): { email: string };
