@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-17
 **Branch:** `feat/admin-2fa-and-containerization` (based on `fix/phase1-integration`)
-**Status:** Approved design, pending implementation plan
+**Status:** Implemented — see §15 for amendments made during implementation
 
 ---
 
@@ -248,6 +248,14 @@ Per-task review found defects in this design. Each was ruled on and implemented;
 | R10 | Enroll/confirm/disable/reset use the same lock | Same race class |
 | R11 | Enrolling while TOTP is already enabled returns 409; confirm requires a *pending* enrollment | Enrolling silently disabled the active factor, letting a session-holder replace the admin's authenticator |
 | R12 | `POST /auth/2fa/totp/enroll` requires the current password | Step-up auth: a stolen access token alone can no longer enroll an attacker's authenticator |
+
+| R13 | Changing a user's role revokes their refresh tokens, and refresh rejects a token whose `role` claim differs from the user's current role | Refresh reads the role from the database, so a pre-promotion session became an admin session with no 2FA; revocation alone lost a race with in-flight refreshes (40/40 survived on real Postgres) |
+| R14 | Admin sign-in codes use a dedicated `sendLoginOtp` (admin wording, real expiry, no link); the Apps Script receives `{ type: 'admin-login-code', code, expiresInMinutes }` | They were going through the registration email, which over Apps Script embeds the code in a learner-portal magic link |
+| R15 | TOTP verification reads the clock once and fails closed | Two clock reads across a 30-second boundary recorded the wrong step |
+| R16 | A SUPER_ADMIN cannot reset their own 2FA, compared on the canonical user id | Would bypass the current-code requirement for disabling; raw-string comparison was bypassable with alternate UUID spellings |
+| R17 | `DB_SSL=true` enables verified TLS for both the app and sequelize-cli; startup rejects `REFRESH_TOKEN_SECRET === JWT_SECRET` | Azure Database for PostgreSQL requires TLS; identical secrets would let refresh tokens pass as access tokens |
+
+**Attempt-cap semantics, stated precisely.** The 5-attempt counter is per account. It resets when a new challenge is issued (at most 3 per hour, login and resend combined) or when a code verifies successfully. For email codes, 5 failures also delete the code. For TOTP, a legitimate successful sign-in resets the counter while another unexpired challenge token may still be live, so the hourly ceiling is not a strict 15 guesses. The risk is negligible (about 3 in a million per guess) but should not be overstated.
 
 Also corrected: the AES-GCM decrypt now requires a 16-byte auth tag (Node 20, our container base, otherwise accepts truncated tags) and validates ciphertext shape; the otplib epoch restore uses `resetOptions()` (the planned restore made every TOTP check after the first throw).
 

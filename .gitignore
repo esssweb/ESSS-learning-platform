@@ -1,6 +1,4 @@
 # Environment variables
-.env
-.env.*
 !.env.*.example
 
 # Dependencies
@@ -8,3 +6,4 @@ node_modules/
 
 # OS files
 .DS_Store
+config.bat
