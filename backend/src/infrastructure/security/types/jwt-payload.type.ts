@@ -1,4 +1,4 @@
-import { UserRole } from '../decorators/roles.decorator';
+import { UserRole } from '../../../core/domain/enums/user-role.enum';
 
 export interface JwtPayload {
   sub?: string;

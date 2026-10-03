@@ -9,6 +9,7 @@ import { RegisterRequestDto } from '../../dto/auth/register-request.dto';
 import { RegisterResponseDto } from '../../dto/auth/register-response.dto';
 import { PhoneNumber } from '../../../domain/value-objects/phone-number.vo';
 import { User } from '../../../domain/models/user/user.model';
+import { UserRole } from '../../../domain/enums/user-role.enum';
 import { RefreshToken } from '../../../domain/models/auth/refresh-token.model';
 import { DeviceToken } from '../../../domain/models/auth/device-token.model';
 import { EmailNotVerifiedException } from '../../../domain/exceptions/email-not-verified.exception';
@@ -73,7 +74,9 @@ export class RegisterUseCase {
       lastName: dto.lastName,
       phoneNumber: dto.phoneNumber ? new PhoneNumber(dto.phoneNumber) : undefined,
       gender: dto.gender,
-      role: dto.role,
+      // Self-registration is public, so the role is never caller-controlled.
+      // Elevated roles are assigned by an admin via the /users endpoints.
+      role: UserRole.STUDENT,
     });
 
     const createdUser = await this.userRepository.create(user);
