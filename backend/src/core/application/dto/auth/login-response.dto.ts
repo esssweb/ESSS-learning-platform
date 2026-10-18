@@ -9,3 +9,12 @@ export class LoginResponseDto {
     role: string;
   };
 }
+
+export class TwoFactorChallengeDto {
+  twoFactorRequired: true;
+  method: string;
+  challengeToken: string;
+  expiresAt: Date;
+}
+
+export type LoginResult = LoginResponseDto | TwoFactorChallengeDto;

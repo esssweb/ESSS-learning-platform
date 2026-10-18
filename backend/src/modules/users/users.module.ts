@@ -5,6 +5,7 @@ import { CreateUserUseCase } from '../../core/application/use-cases/users/create
 import { DeleteUserUseCase } from '../../core/application/use-cases/users/delete-user.use-case';
 import { GetUserUseCase } from '../../core/application/use-cases/users/get-user.use-case';
 import { ListUsersUseCase } from '../../core/application/use-cases/users/list-users.use-case';
+import { ResetTwoFactorUseCase } from '../../core/application/use-cases/users/reset-two-factor.use-case';
 import { UpdateUserUseCase } from '../../core/application/use-cases/users/update-user.use-case';
 import { DatabaseModule } from '../../infrastructure/database/database.module';
 import { BcryptHashService } from '../../infrastructure/security/services/bcrypt-hash.service';
@@ -20,6 +21,7 @@ import { UsersController } from '../../presentation/http/controllers/users/users
     DeleteUserUseCase,
     ListUsersUseCase,
     AssignRoleUseCase,
+    ResetTwoFactorUseCase,
     {
       provide: HASH_SERVICE,
       useClass: BcryptHashService,
@@ -32,6 +34,7 @@ import { UsersController } from '../../presentation/http/controllers/users/users
     DeleteUserUseCase,
     ListUsersUseCase,
     AssignRoleUseCase,
+    ResetTwoFactorUseCase,
   ],
 })
 export class UsersModule {}

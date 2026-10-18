@@ -1,4 +1,13 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SendVerificationOtpUseCase } from '../../../../core/application/use-cases/auth/send-verification-otp.use-case';
 import { VerifyOtpUseCase } from '../../../../core/application/use-cases/auth/verify-otp.use-case';
@@ -6,6 +15,20 @@ import { RegisterUseCase } from '../../../../core/application/use-cases/auth/reg
 import { LoginUseCase } from '../../../../core/application/use-cases/auth/login.use-case';
 import { RefreshTokenUseCase } from '../../../../core/application/use-cases/auth/refresh-token.use-case';
 import { LogoutUseCase } from '../../../../core/application/use-cases/auth/logout.use-case';
+import { VerifyTwoFactorUseCase } from '../../../../core/application/use-cases/auth/verify-two-factor.use-case';
+import { ResendTwoFactorOtpUseCase } from '../../../../core/application/use-cases/auth/resend-two-factor-otp.use-case';
+import { EnrollTotpUseCase } from '../../../../core/application/use-cases/auth/enroll-totp.use-case';
+import { ConfirmTotpUseCase } from '../../../../core/application/use-cases/auth/confirm-totp.use-case';
+import { DisableTotpUseCase } from '../../../../core/application/use-cases/auth/disable-totp.use-case';
+import { USER_REPOSITORY } from '../../../../core/application/ports/tokens';
+import { UserRepositoryInterface } from '../../../../core/domain/repositories/user.repository.interface';
+import { UserNotFoundException } from '../../../../core/domain/exceptions/user-not-found.exception';
+import { UserRole } from '../../../../core/domain/enums/user-role.enum';
+import { Roles } from '../../../../infrastructure/security/decorators/roles.decorator';
+import { VerifyTwoFactorDto } from '../../dto/auth/verify-two-factor.dto';
+import { ResendTwoFactorDto } from '../../dto/auth/resend-two-factor.dto';
+import { TotpCodeDto } from '../../dto/auth/totp-code.dto';
+import { EnrollTotpDto } from '../../dto/auth/enroll-totp.dto';
 import { SendOtpDto } from '../../dto/auth/send-otp.dto';
 import { VerifyOtpDto } from '../../dto/auth/verify-otp.dto';
 import { RegisterDto } from '../../dto/auth/register.dto';
@@ -27,6 +50,13 @@ export class AuthController {
     private readonly loginUseCase: LoginUseCase,
     private readonly refreshTokenUseCase: RefreshTokenUseCase,
     private readonly logoutUseCase: LogoutUseCase,
+    private readonly verifyTwoFactorUseCase: VerifyTwoFactorUseCase,
+    private readonly resendTwoFactorOtpUseCase: ResendTwoFactorOtpUseCase,
+    private readonly enrollTotpUseCase: EnrollTotpUseCase,
+    private readonly confirmTotpUseCase: ConfirmTotpUseCase,
+    private readonly disableTotpUseCase: DisableTotpUseCase,
+    @Inject(USER_REPOSITORY)
+    private readonly userRepository: UserRepositoryInterface,
   ) {}
 
   @Public()
@@ -74,8 +104,15 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with verified account credentials' })
-  @ApiResponse({ status: 200, description: 'User logged in successfully' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Either the issued tokens, or for admins a two-factor challenge ' +
+      '{ twoFactorRequired, method, challengeToken, expiresAt } that must be exchanged ' +
+      'via POST /auth/2fa/verify',
+  })
   @ApiResponse({ status: 401, description: 'Invalid credentials or inactive account' })
+  @ApiResponse({ status: 429, description: 'Admin two-factor challenge rate limited' })
   async login(@Body() body: LoginRequestDto) {
     return this.loginUseCase.execute({ email: body.email, password: body.password });
   }
@@ -109,5 +146,84 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout all sessions' })
   async revokeAll(@CurrentUser() user: { id: string; userId: string }): Promise<void> {
     await this.logoutUseCase.execute(user.userId ?? user.id);
+  }
+
+  @Public()
+  @Post('2fa/verify')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Exchange a two-factor challenge for access tokens' })
+  @ApiResponse({ status: 200, description: 'Tokens issued' })
+  @ApiResponse({ status: 401, description: 'Invalid code or expired challenge' })
+  async verifyTwoFactor(@Body() body: VerifyTwoFactorDto) {
+    return this.verifyTwoFactorUseCase.execute(body);
+  }
+
+  @Public()
+  @Post('2fa/resend')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend the email two-factor code' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Code re-sent. Returns { message, expiresAt, challengeToken }; the fresh ' +
+      'challengeToken replaces the previous one and must be used for the next verify.',
+  })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  async resendTwoFactor(@Body() body: ResendTwoFactorDto) {
+    return this.resendTwoFactorOtpUseCase.execute(body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @Post('2fa/totp/enroll')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Begin authenticator app enrollment (requires current password)' })
+  @ApiResponse({ status: 401, description: 'Wrong password' })
+  @ApiResponse({ status: 403, description: 'Requires ADMIN or SUPER_ADMIN role' })
+  @ApiResponse({ status: 409, description: 'Authenticator app already enabled' })
+  async enrollTotp(@CurrentUser() user: { userId: string }, @Body() body: EnrollTotpDto) {
+    return this.enrollTotpUseCase.execute(await this.resolveAuthId(user.userId), body.password);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @Post('2fa/totp/confirm')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Confirm and activate authenticator app enrollment' })
+  @ApiResponse({
+    status: 401,
+    description:
+      'Wrong code. This is not a session expiry; clients must not refresh and retry automatically.',
+  })
+  @ApiResponse({ status: 403, description: 'Requires ADMIN or SUPER_ADMIN role' })
+  async confirmTotp(@CurrentUser() user: { userId: string }, @Body() body: TotpCodeDto) {
+    return this.confirmTotpUseCase.execute(await this.resolveAuthId(user.userId), body.code);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @Delete('2fa/totp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Disable the authenticator app and revert to email codes' })
+  @ApiResponse({
+    status: 401,
+    description:
+      'Wrong code. This is not a session expiry; clients must not refresh and retry automatically.',
+  })
+  @ApiResponse({ status: 403, description: 'Requires ADMIN or SUPER_ADMIN role' })
+  async disableTotp(@CurrentUser() user: { userId: string }, @Body() body: TotpCodeDto) {
+    return this.disableTotpUseCase.execute(await this.resolveAuthId(user.userId), body.code);
+  }
+
+  // The JWT carries a users.id; the TOTP use cases operate on auth.id.
+  private async resolveAuthId(userId: string): Promise<string> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new UserNotFoundException(userId);
+    }
+    return user.authId;
   }
 }

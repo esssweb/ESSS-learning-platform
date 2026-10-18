@@ -18,6 +18,17 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('Invalid access token');
     }
 
+    // Challenge and email-verification tokens are signed with the same secret
+    // but must never authenticate as a bearer token. Access tokens never carry
+    // `purpose`, so its presence alone is disqualifying.
+    if (payload.purpose !== undefined) {
+      throw new UnauthorizedException('Invalid access token');
+    }
+
+    if (!(payload.userId ?? payload.sub)) {
+      throw new UnauthorizedException('Invalid access token');
+    }
+
     return {
       id: payload.userId ?? payload.sub,
       userId: payload.userId ?? payload.sub,

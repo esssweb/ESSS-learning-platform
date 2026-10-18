@@ -6,6 +6,7 @@ export interface JwtPayload {
   email?: string;
   role?: UserRole;
   type?: 'access' | 'refresh';
+  purpose?: string;
   iat?: number;
   exp?: number;
 }
