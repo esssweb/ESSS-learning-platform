@@ -59,6 +59,8 @@ export class SendVerificationOtpUseCase {
         otpAttemptCount: 0,
         otpRequestCount: 0,
         isActive: true,
+        loginOtpAttemptCount: 0,
+        loginOtpRequestCount: 0,
       });
       auth.setOtp(hashedOtp, expiresAt);
       await this.authRepository.create(auth);

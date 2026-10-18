@@ -12,12 +12,14 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../../../core/domain/enums/user-role.enum';
+import { CurrentUser } from '../../../../infrastructure/security/decorators/current-user.deorator';
 import { Roles } from '../../../../infrastructure/security/decorators/roles.decorator';
 import { AssignRoleUseCase } from '../../../../core/application/use-cases/users/assign-role.use-case';
 import { CreateUserUseCase } from '../../../../core/application/use-cases/users/create-user.use-case';
 import { DeleteUserUseCase } from '../../../../core/application/use-cases/users/delete-user.use-case';
 import { GetUserUseCase } from '../../../../core/application/use-cases/users/get-user.use-case';
 import { ListUsersUseCase } from '../../../../core/application/use-cases/users/list-users.use-case';
+import { ResetTwoFactorUseCase } from '../../../../core/application/use-cases/users/reset-two-factor.use-case';
 import { UpdateUserUseCase } from '../../../../core/application/use-cases/users/update-user.use-case';
 import { CreateUserDto } from '../../dto/users/create-user.dto';
 import { UpdateUserDto } from '../../dto/users/update-user.dto';
@@ -43,6 +45,7 @@ export class UsersController {
     private readonly deleteUserUseCase: DeleteUserUseCase,
     private readonly listUsersUseCase: ListUsersUseCase,
     private readonly assignRoleUseCase: AssignRoleUseCase,
+    private readonly resetTwoFactorUseCase: ResetTwoFactorUseCase,
   ) {}
 
   @Post()
@@ -97,5 +100,15 @@ export class UsersController {
     @Body() body: AssignRoleDto,
   ): Promise<UserResponseHttpDto> {
     return this.assignRoleUseCase.execute(id, body);
+  }
+
+  // Method-level @Roles overrides the class-level ADMIN/SUPER_ADMIN.
+  @Post(':id/2fa/reset')
+  @Roles(UserRole.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset a user two-factor enrollment (SUPER_ADMIN only)' })
+  @ApiParam({ name: 'id', description: 'User ID (UUID)' })
+  async resetTwoFactor(@Param('id') id: string, @CurrentUser() actor: { userId: string }) {
+    return this.resetTwoFactorUseCase.execute(id, actor.userId);
   }
 }

@@ -53,4 +53,33 @@ export class NodemailerEmailService implements EmailServiceInterface {
       `,
     });
   }
+
+  async sendLoginOtp(email: string, otpCode: string, expiresAt: Date): Promise<void> {
+    if (!this.transporter) {
+      if (this.configService.get<string>('NODE_ENV') === 'production') {
+        throw new Error('SMTP is not configured in production');
+      }
+      this.logger.log(`[DEV] Login OTP for ${email}: ${otpCode}`);
+      return;
+    }
+
+    const minutes = Math.max(1, Math.round((expiresAt.getTime() - Date.now()) / 60000));
+
+    await this.transporter.sendMail({
+      from: this.configService.get<string>('SMTP_FROM') || 'noreply@esss.com',
+      to: email,
+      subject: 'Your ESSS admin sign-in code',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+          <h2>Admin sign-in code</h2>
+          <p>Someone signed in to your ESSS admin account with your password. Enter this code to finish signing in:</p>
+          <div style="background: #f4f4f4; padding: 16px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 16px 0; border-radius: 8px;">
+            ${otpCode}
+          </div>
+          <p>This code expires in <strong>${minutes} ${minutes === 1 ? 'minute' : 'minutes'}</strong>.</p>
+          <p>If this wasn't you, change your password immediately and tell a SUPER_ADMIN.</p>
+        </div>
+      `,
+    });
+  }
 }

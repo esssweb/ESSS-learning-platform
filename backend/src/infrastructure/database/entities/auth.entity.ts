@@ -92,4 +92,38 @@ export class AuthEntity extends Model {
     field: 'is_active',
   })
   isActive: boolean;
+
+  @Column({ type: DataType.TEXT, allowNull: true, field: 'totp_secret' })
+  totpSecret: string;
+
+  @Column({ type: DataType.DATE, allowNull: true, field: 'totp_enabled_at' })
+  totpEnabledAt: Date;
+
+  @Column({ type: DataType.BIGINT, allowNull: true, field: 'totp_last_used_step' })
+  totpLastUsedStep: number;
+
+  @Column({ type: DataType.TEXT, allowNull: true, field: 'login_otp_code' })
+  loginOtpCode: string;
+
+  @Column({ type: DataType.DATE, allowNull: true, field: 'login_otp_expires_at' })
+  loginOtpExpiresAt: Date;
+
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    field: 'login_otp_attempt_count',
+  })
+  loginOtpAttemptCount: number;
+
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    field: 'login_otp_request_count',
+  })
+  loginOtpRequestCount: number;
+
+  @Column({ type: DataType.DATE, allowNull: true, field: 'login_otp_last_sent_at' })
+  loginOtpLastSentAt: Date;
 }

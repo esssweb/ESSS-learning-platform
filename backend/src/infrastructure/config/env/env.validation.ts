@@ -48,6 +48,14 @@ class EnvironmentVariables {
   @IsNotEmpty()
   REFRESH_TOKEN_EXPIRES_IN: string;
 
+  @IsString()
+  @IsNotEmpty()
+  TOTP_ENCRYPTION_KEY: string;
+
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  DB_SSL?: string;
+
   @IsOptional()
   @IsString()
   CORS_ORIGIN?: string;
@@ -95,6 +103,12 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
 
   if (errors.length > 0) {
     throw new Error(errors.toString());
+  }
+
+  // Both are signed with HMAC; identical secrets would let a refresh token pass
+  // the access-token strategy.
+  if (validatedConfig.REFRESH_TOKEN_SECRET === validatedConfig.JWT_SECRET) {
+    throw new Error('REFRESH_TOKEN_SECRET must differ from JWT_SECRET');
   }
 
   return config;

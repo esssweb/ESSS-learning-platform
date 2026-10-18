@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
+import { Transaction } from 'sequelize';
 import { Auth } from '../../../../core/domain/models/auth/auth.model';
 import { AuthRepositoryInterface } from '../../../../core/domain/repositories/auth.repository.interface';
 import { AuthEntity } from '../../entities/auth.entity';
@@ -11,9 +12,7 @@ export class AuthRepository
   extends BaseSequelizeRepository<Auth, AuthEntity>
   implements AuthRepositoryInterface
 {
-  constructor(
-    @InjectModel(AuthEntity) private readonly authModel: typeof AuthEntity,
-  ) {
+  constructor(@InjectModel(AuthEntity) private readonly authModel: typeof AuthEntity) {
     super(authModel);
   }
 
@@ -23,9 +22,7 @@ export class AuthRepository
 
   async create(entity: Auth): Promise<Auth> {
     const payload = AuthMapper.toEntity(entity);
-    const createdEntity = await this.authModel.create(
-      payload as Partial<AuthEntity>,
-    );
+    const createdEntity = await this.authModel.create(payload as Partial<AuthEntity>);
     return this.toDomain(createdEntity);
   }
 
@@ -42,6 +39,23 @@ export class AuthRepository
 
     await existing.update(payload);
     return this.toDomain(existing);
+  }
+
+  async updateExclusively<T>(authId: string, work: (auth: Auth) => Promise<T>): Promise<T | null> {
+    return this.authModel.sequelize!.transaction(async (transaction) => {
+      const entity = await this.authModel.findByPk(authId, {
+        lock: Transaction.LOCK.UPDATE,
+        transaction,
+      });
+      if (!entity) {
+        return null;
+      }
+
+      const auth = this.toDomain(entity);
+      const result = await work(auth);
+      await entity.update(AuthMapper.toEntity(auth), { transaction });
+      return result;
+    });
   }
 
   async findByEmail(email: string): Promise<Auth | null> {

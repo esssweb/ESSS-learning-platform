@@ -15,6 +15,15 @@ export class AuthMapper {
       lastOtpSentAt: entity.lastOtpSentAt ?? undefined,
       verificationToken: entity.verificationToken ?? undefined,
       isActive: entity.isActive,
+      totpSecret: entity.totpSecret ?? undefined,
+      totpEnabledAt: entity.totpEnabledAt ?? undefined,
+      totpLastUsedStep:
+        entity.totpLastUsedStep != null ? Number(entity.totpLastUsedStep) : undefined,
+      loginOtpCode: entity.loginOtpCode ?? undefined,
+      loginOtpExpiresAt: entity.loginOtpExpiresAt ?? undefined,
+      loginOtpAttemptCount: entity.loginOtpAttemptCount ?? 0,
+      loginOtpRequestCount: entity.loginOtpRequestCount ?? 0,
+      loginOtpLastSentAt: entity.loginOtpLastSentAt ?? undefined,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
     });
@@ -33,6 +42,14 @@ export class AuthMapper {
       lastOtpSentAt: domain.lastOtpSentAt ?? null,
       verificationToken: domain.verificationToken ?? null,
       isActive: domain.isActive,
+      totpSecret: domain.totpSecret ?? null,
+      totpEnabledAt: domain.totpEnabledAt ?? null,
+      totpLastUsedStep: domain.totpLastUsedStep ?? null,
+      loginOtpCode: domain.loginOtpCode ?? null,
+      loginOtpExpiresAt: domain.loginOtpExpiresAt ?? null,
+      loginOtpAttemptCount: domain.loginOtpAttemptCount,
+      loginOtpRequestCount: domain.loginOtpRequestCount,
+      loginOtpLastSentAt: domain.loginOtpLastSentAt ?? null,
     } as Partial<AuthEntity>;
   }
 }

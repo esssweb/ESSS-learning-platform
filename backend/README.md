@@ -44,10 +44,10 @@ See [Architecture Documentation](./docs/CLEAN_ARCHITECTURE_STRUCTURE.md) for det
 
 3. **Set up environment variables**
    ```bash
-   cp .env.example .env
+   cp .env.dev.example .env.dev
    ```
 
-   Configure the following in `.env`:
+   Configure the following in `.env.dev`:
    ```env
    # Database - Local PostgreSQL
    DB_HOST="localhost"
@@ -69,6 +69,11 @@ See [Architecture Documentation](./docs/CLEAN_ARCHITECTURE_STRUCTURE.md) for det
    JWT_EXPIRES_IN="15m"
    REFRESH_TOKEN_SECRET="your-refresh-secret"
    REFRESH_TOKEN_EXPIRES_IN="7d"
+
+   # Two-factor authentication
+   # 32-byte key, base64 encoded. Generate with:
+   #   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+   TOTP_ENCRYPTION_KEY="your-generated-key"
 
    # Firebase
    FIREBASE_PROJECT_ID="your-project-id"
@@ -285,6 +290,7 @@ See Swagger documentation for complete API reference.
 | `JWT_EXPIRES_IN` | Access token expiration | Yes |
 | `REFRESH_TOKEN_SECRET` | Secret for refresh tokens | Yes |
 | `REFRESH_TOKEN_EXPIRES_IN` | Refresh token expiration | Yes |
+| `TOTP_ENCRYPTION_KEY` | 32-byte base64 key for encrypting 2FA secrets. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` | Yes |
 | `FIREBASE_PROJECT_ID` | Firebase project ID | Yes |
 | `FIREBASE_PRIVATE_KEY` | Firebase private key | Yes |
 | `FIREBASE_CLIENT_EMAIL` | Firebase client email | Yes |
@@ -300,7 +306,7 @@ See Swagger documentation for complete API reference.
 # Check PostgreSQL is running
 psql -U postgres
 
-# Verify database credentials in .env
+# Verify database credentials in .env.dev
 # Ensure database exists
 createdb esss_learning
 
@@ -323,7 +329,7 @@ npx sequelize-cli db:migrate
 
 ### Port Already in Use
 ```bash
-# Change PORT in .env
+# Change PORT in .env.dev
 # Or kill process using port 3000
 lsof -ti:3000 | xargs kill -9
 ```
